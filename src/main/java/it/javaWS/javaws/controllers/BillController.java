@@ -30,4 +30,10 @@ public class BillController {
     public List<Bill> getBillsByGroup(@PathVariable Long groupId) {
         return billService.getBillsByGroup(groupId);
     }
+    
+    @DeleteMapping("/{id}")
+    public void deleteBill(@PathVariable Long id) {
+        billService.deleteBill(id);
+    }
+
 }

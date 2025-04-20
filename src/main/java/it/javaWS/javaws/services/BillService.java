@@ -5,6 +5,7 @@ import it.javaWS.javaws.repositories.*;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,8 +44,8 @@ public class BillService {
 
         // Equa divisione della spesa tra gli utenti del gruppo
         List<User> groupUsers = new ArrayList<>(group.getUsers());
-        BigDecimal splitAmount = amount.divide(BigDecimal.valueOf(groupUsers.size()), BigDecimal.ROUND_HALF_UP);
-
+        BigDecimal splitAmount = amount.divide(BigDecimal.valueOf(groupUsers.size()), RoundingMode.HALF_UP);
+        
         for (User user : groupUsers) {
             if (!user.getId().equals(buyer.getId())) {
                 Transaction t = new Transaction();
@@ -62,4 +63,13 @@ public class BillService {
     public List<Bill> getBillsByGroup(Long groupId) {
         return billRepository.findByGroupId(groupId);
     }
+    
+    public void deleteBill(Long id) {
+        billRepository.deleteById(id);
+    }
+    
+    public void updateBill(Bill bill) {
+    	billRepository.save(bill);
+    }
+
 }

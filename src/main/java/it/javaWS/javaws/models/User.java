@@ -2,17 +2,23 @@ package it.javaWS.javaws.models;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.util.List;
 import java.util.Set;
 
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Entity
 @Table(name = "users") // "user" è parola riservata in alcuni DB
 public class User {
-
+	
+	@EqualsAndHashCode.Include
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -20,14 +26,10 @@ public class User {
     private String username;
     private String email;
     private String password;
+    private Boolean deleted;
 
-    @ManyToMany
-    @JoinTable(
-        name = "user_group",
-        joinColumns = @JoinColumn(name = "user_id"),
-        inverseJoinColumns = @JoinColumn(name = "group_id")
-    )
-    private Set<Group> groups;
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<UserGroup> userGroups;
 
     @OneToMany(mappedBy = "user")
     private List<Transaction> transactions;
