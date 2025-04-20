@@ -1,4 +1,4 @@
-package it.javaWS.javaws.controllers.models;
+package it.javaWS.javaws.models;
 
 import jakarta.persistence.*;
 import lombok.Data;
