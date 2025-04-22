@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 
@@ -26,6 +27,7 @@ public class User {
     private String username;
     private String email;
     private String password;
+    private LocalDate regDate;
     private Boolean deleted;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
