@@ -10,8 +10,6 @@ public class UserDTO {
 	private Long id;
     private String username;
     private String email;
-    private LocalDate startDate; //Data di ingresso nel gruppo interpellato
-    private LocalDate endDate; //Data di uscita dal gruppo interpellato
     private LocalDate regDate; //Data di registrazione dell'utente
     
     public UserDTO(User user) {

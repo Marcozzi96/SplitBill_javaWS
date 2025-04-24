@@ -1,7 +1,6 @@
 package it.javaWS.javaws.services;
 
 import it.javaWS.javaws.dto.GroupDTO;
-import it.javaWS.javaws.dto.UserDTO;
 import it.javaWS.javaws.models.Group;
 import it.javaWS.javaws.models.User;
 import it.javaWS.javaws.models.UserGroup;
@@ -14,9 +13,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 public class GroupService {
@@ -84,7 +84,10 @@ public class GroupService {
 	
 	@Transactional
 	public GroupDTO addUsersToGroup(Long groupId, Set<Long> userIds) {
-		Group group = groupRepository.findById(groupId).orElseThrow();
+		Optional<Group> groupOpt = groupRepository.findById(groupId);
+		if(groupOpt.isEmpty()) return null;
+		
+		Group group = groupOpt.get();
 		Set<User> usersToAdd = new HashSet<>(userRepository.findAllById(userIds));
 
 		Set<UserGroup> userGroups = new HashSet<UserGroup>();
@@ -119,24 +122,30 @@ public class GroupService {
 	@Transactional
 	public GroupDTO removeUsersFromGroup(Long groupId, Set<Long> userIds) {
 
-		for (Long userId : userIds) {
-			UserGroupId userGroupId = new UserGroupId(userId, groupId);
-			UserGroup userGroup = userGroupRepository.findById(userGroupId).get();
-			userGroup.setDataUscita(LocalDate.now());
-			userGroupRepository.save(userGroup);
-		}
-
-//        group.getUserGroups().stream().filter(x->x.getUser().getId().equals(userId))
-//        	.forEach(x->{
-//        		x.setDataUscita(LocalDate.now());
-//        		userGroupRepository.save(x);
-//        	});
+		Optional<Group> groupOpt = groupRepository.findById(groupId);
+		if(groupOpt.isEmpty()) return null; //il gruppo non esiste
+//		Set<UserGroup> userGroups = userGroupRepository.findByGroup_IdAndUser_IdIn(groupId, userIds);
+//		
+//		userGroups.forEach(ug->ug.setDataUscita(LocalDate.now()));
+//		
+//		userGroupRepository.saveAll(userGroups);
+		
+		userGroupRepository.deleteByGroup_IdAndUser_IdIn(groupId, userIds);
+		
+		
 		Group group = groupRepository.findById(groupId).orElseThrow();
 		return new GroupDTO(group).setUsers(group);
 	}
+	
+	
+	
+	
 
-	public void deleteGroup(Long id) {
+	public Boolean deleteGroup(Long id) {
+		Optional<Group> groupOpt = groupRepository.findById(id);
+		if(groupOpt.isEmpty()) return false;
 		groupRepository.deleteById(id);
+		return true;
 	}
 
 }

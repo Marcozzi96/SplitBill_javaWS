@@ -27,13 +27,7 @@ public class GroupDTO {
     public GroupDTO setUsers(Group group) {
     	this.users = group.getUserGroups()
         		.stream()
-        		.map(u-> {
-        			UserDTO userDTO = new UserDTO(u.getUser());
-        			userDTO.setStartDate(u.getDataIngresso());
-        			userDTO.setEndDate(u.getDataUscita());
-        			
-        			return userDTO;
-        			})
+        		.map(u-> new UserDTO(u.getUser()))
         		.collect(Collectors.toSet());
 		return this;
     }

@@ -37,5 +37,5 @@ public class User {
     private List<Transaction> transactions;
 
     @OneToMany(mappedBy = "buyer")
-    private List<Bill> billsAcquistati;
+    private List<Bill> bills;
 }

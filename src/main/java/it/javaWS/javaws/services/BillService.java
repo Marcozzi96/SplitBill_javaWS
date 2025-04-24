@@ -9,6 +9,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class BillService {
@@ -28,9 +29,18 @@ public class BillService {
 
     public Bill createBill(String description, BigDecimal amount, String notes,
                            Long buyerId, Long groupId) {
+    	
+    	if(BigDecimal.ZERO.compareTo(amount) > 0) return null; //amount è vuoto, 0 o negativo
 
-        User buyer = userRepository.findById(buyerId).orElseThrow();
-        Group group = groupRepository.findById(groupId).orElseThrow();
+    	Optional<User> buyerOpt = userRepository.findById(buyerId);
+    	Optional<Group> groupOpt = groupRepository.findById(groupId);
+        
+    	if(buyerOpt.isEmpty() || groupOpt.isEmpty()) return null; //buyerId o groupId non validi
+    	
+    	
+    	
+        User buyer = buyerOpt.get();
+        Group group = groupOpt.get();
 
         Bill bill = new Bill();
         bill.setDescription(description);
