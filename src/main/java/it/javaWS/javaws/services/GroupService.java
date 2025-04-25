@@ -136,8 +136,10 @@ public class GroupService {
 		Group group = groupRepository.findById(groupId).orElseThrow();
 		return new GroupDTO(group).setUsers(group);
 	}
-	
-	
+		
+	public List<GroupDTO> getGroupsByUserId(Long userId) {
+		return groupRepository.getGroupsByUserId(userId).stream().map(g -> new GroupDTO(g)).toList();
+	}
 	
 	
 

@@ -28,7 +28,7 @@ public class User {
     private String email;
     private String password;
     private LocalDate regDate;
-    private Boolean deleted;
+//    private Boolean deleted;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<UserGroup> userGroups;

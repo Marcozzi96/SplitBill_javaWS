@@ -5,6 +5,7 @@ import it.javaWS.javaws.models.Group;
 import it.javaWS.javaws.services.GroupService;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Set;
 
 @RestController
@@ -26,6 +27,11 @@ public class GroupController {
 	@GetMapping("/{id}")
 	public GroupDTO getGroup(@PathVariable Long id) {
 		return groupService.getGroup(id);
+	}
+	
+	@GetMapping("/byUser/{id}")
+	public List<GroupDTO> getGroupsByUserId(@PathVariable Long id){
+		return groupService.getGroupsByUserId(id);
 	}
 
 	@PostMapping("/{groupId}/users")
