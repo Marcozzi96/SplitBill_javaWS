@@ -2,6 +2,10 @@ package it.javaWS.javaws.services;
 
 import it.javaWS.javaws.models.User;
 import it.javaWS.javaws.repositories.UserRepository;
+
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -9,7 +13,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
-public class UserService {
+public class UserService implements UserDetailsService{
 
 	private final UserRepository userRepository;
 
@@ -47,5 +51,11 @@ public class UserService {
 	public User updateUser(User user) {
 		return userRepository.save(user);
 	}
+
+	@Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+    }
 
 }
