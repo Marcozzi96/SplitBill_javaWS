@@ -6,8 +6,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -47,14 +45,14 @@ public class AuthController {
 			User user = userService.loadUserByUsername(request.getUsername());
 //            UserDetails user = userService.loadUserByUsername(request.getUsername());
             String token = jwtUtil.generateToken(user);
-            return ResponseEntity.ok(new AuthResponse(token));
+            return ResponseEntity.ok(new AuthResponse(token, new UserDTO(user)));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Login failed");
         }
     }
 
     @PostMapping("/register")
-    public ResponseEntity<UserDTO> register(@RequestBody User user) {
+    public ResponseEntity<?> register(@RequestBody User user) {
         user.setRegDate(LocalDate.now());
         user.setPassword(passwordEncoder.encode(user.getPassword())); // ✅ Più elegante
 
@@ -62,6 +60,7 @@ public class AuthController {
         if (newUser == null)
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
 
-        return ResponseEntity.ok(new UserDTO(newUser));
+        String token = jwtUtil.generateToken(user);
+        return ResponseEntity.ok(new AuthResponse(token, new UserDTO(user)));
     }
 }
