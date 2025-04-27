@@ -47,7 +47,7 @@ public class AuthController {
             String token = jwtUtil.generateToken(user);
             return ResponseEntity.ok(new AuthResponse(token, new UserDTO(user)));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Login failed");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
         }
     }
 

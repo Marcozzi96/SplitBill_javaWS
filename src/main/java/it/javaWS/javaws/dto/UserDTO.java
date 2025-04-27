@@ -1,7 +1,5 @@
 package it.javaWS.javaws.dto;
 
-import java.time.LocalDate;
-
 import it.javaWS.javaws.models.User;
 import lombok.Data;
 

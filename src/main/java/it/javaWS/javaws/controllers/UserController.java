@@ -1,18 +1,15 @@
 package it.javaWS.javaws.controllers;
 
+import it.javaWS.javaws.dto.AuthResponse;
 import it.javaWS.javaws.dto.UserDTO;
 import it.javaWS.javaws.models.User;
 import it.javaWS.javaws.security.JwtUtil;
 import it.javaWS.javaws.services.UserService;
-import jakarta.persistence.PostUpdate;
-import jakarta.servlet.http.HttpServletRequest;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
-
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/user")
@@ -21,11 +18,12 @@ public class UserController {
 
     private final UserService userService;
     private final JwtUtil jwtUtil;
-    public UserController(UserService userService, JwtUtil jwtUtil) {
+    private final PasswordEncoder passwordEncoder;
+    public UserController(UserService userService, JwtUtil jwtUtil, PasswordEncoder passwordEncoder) {
         this.userService = userService;
 		this.jwtUtil = jwtUtil;
+		this.passwordEncoder = passwordEncoder;
     }
-
 
     @GetMapping("/me")
     public UserDTO getUser(@RequestHeader("Authorization") String authHeader) {
@@ -36,18 +34,25 @@ public class UserController {
     	
     }
     
-    @PutMapping()
-    public UserDTO updateUser(@RequestBody User user) {
-    	Optional<User> userOpt = userService.getUser(user.getId());
-    	if(!userOpt.isPresent())
-    		return null;
-    	User userFromDB = userOpt.get();
-    	if(user.getEmail() != null)
-    		userFromDB.setEmail(user.getEmail());
-    	if(user.getUsername() != null)
-    		userFromDB.setUsername(user.getUsername());
+    @PutMapping("/update")
+    public ResponseEntity<?> updateUser(@RequestHeader("Authorization") String authHeader, @RequestBody User updatedUser) {
+    	String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
+    	User userFromDB= userService.getUser(jwtUtil.extractUserId(token)).orElseThrow();
     	
-        return new UserDTO(userService.updateUser(userFromDB));
+    	if(updatedUser.getEmail() != null)
+    		userFromDB.setEmail(updatedUser.getEmail());
+    	if(updatedUser.getUsername() != null)
+    		userFromDB.setUsername(updatedUser.getUsername());
+    	if(updatedUser.getPassword() != null) {
+    		userFromDB.setPassword(passwordEncoder.encode(updatedUser.getPassword())); 
+    	}
+        User updated = userService.updateUser(userFromDB);
+
+        // CREA UN NUOVO TOKEN
+        String newToken = jwtUtil.generateToken(updated);
+
+        return ResponseEntity.ok(new AuthResponse(newToken, new UserDTO(updated)));
+    	
     }
     
     
