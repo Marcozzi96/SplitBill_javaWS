@@ -1,6 +1,7 @@
 package it.javaWS.javaws.controllers;
 
 import java.time.LocalDate;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -47,7 +48,7 @@ public class AuthController {
             String token = jwtUtil.generateToken(user);
             return ResponseEntity.ok(new AuthResponse(token, new UserDTO(user)));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -58,9 +59,9 @@ public class AuthController {
 
         User newUser = userService.createUser(user);
         if (newUser == null)
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Username o Email già utilizzati"));
 
-        String token = jwtUtil.generateToken(user);
-        return ResponseEntity.ok(new AuthResponse(token, new UserDTO(user)));
+//        String token = jwtUtil.generateToken(user);
+        return ResponseEntity.ok(new UserDTO(user));
     }
 }

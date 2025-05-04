@@ -1,6 +1,5 @@
 package it.javaWS.javaws.services;
 
-import it.javaWS.javaws.dto.GroupDTO;
 import it.javaWS.javaws.models.Group;
 import it.javaWS.javaws.models.User;
 import it.javaWS.javaws.models.UserGroup;
@@ -13,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -33,7 +31,7 @@ public class GroupService {
 	}
 
 	@Transactional
-	public GroupDTO createGroup(String name, String description, Set<Long> userIds) {
+	public Group createGroup(String name, String description, Set<Long> userIds) {
 
 		// 1. Recupera gli utenti
 		Set<User> users = new HashSet<>(userRepository.findAllById(userIds));
@@ -66,28 +64,20 @@ public class GroupService {
 		group.setUserGroups(userGroups);
 
 		group = groupRepository.save(group);
-		GroupDTO dto = new GroupDTO(group);
-		dto.setUsers(group);
-		return dto;
+//		GroupDTO dto = new GroupDTO(group);
+//		dto.setUsers(group);
+		return group;
 	}
 
 	@Transactional
-	public GroupDTO getGroup(Long id) {
+	public Group getGroup(Long id) {
 		Optional<Group> groupOpt = groupRepository.findById(id);
-		if (groupOpt.isEmpty())
-			return null;
-
-		GroupDTO groupDTO = new GroupDTO(groupOpt.get());
-		groupDTO.setUsers(groupOpt.get());
-		return groupDTO;
+		return groupOpt.orElse(null);
 	}
 	
 	@Transactional
-	public GroupDTO addUsersToGroup(Long groupId, Set<Long> userIds) {
-		Optional<Group> groupOpt = groupRepository.findById(groupId);
-		if(groupOpt.isEmpty()) return null;
+	public Group addUsersToGroup(Group group, Set<Long> userIds) {
 		
-		Group group = groupOpt.get();
 		Set<User> usersToAdd = new HashSet<>(userRepository.findAllById(userIds));
 
 		Set<UserGroup> userGroups = new HashSet<UserGroup>();
@@ -114,13 +104,14 @@ public class GroupService {
 
 		// Aggiungi utenti al set esistente
 		group.getUserGroups().addAll(userGroups);
-		groupRepository.save(group);
+		
+		return groupRepository.save(group);
 
-		return new GroupDTO(group).setUsers(group);
+//		return new GroupDTO(group).setUsers(group);
 	}
 
 	@Transactional
-	public GroupDTO removeUsersFromGroup(Long groupId, Set<Long> userIds) {
+	public Group removeUsersFromGroup(Long groupId, Set<Long> userIds) {
 
 		Optional<Group> groupOpt = groupRepository.findById(groupId);
 		if(groupOpt.isEmpty()) return null; //il gruppo non esiste
@@ -133,12 +124,14 @@ public class GroupService {
 		userGroupRepository.deleteByGroup_IdAndUser_IdIn(groupId, userIds);
 		
 		
-		Group group = groupRepository.findById(groupId).orElseThrow();
-		return new GroupDTO(group).setUsers(group);
-	}
+		return groupRepository.findById(groupId).orElseThrow();
 		
-	public List<GroupDTO> getGroupsByUserId(Long userId) {
-		return groupRepository.getGroupsByUserId(userId).stream().map(g -> new GroupDTO(g)).toList();
+	}
+	
+	
+		
+	public List<Group> getGroupsByUserId(Long userId) {
+		return groupRepository.getGroupsByUserId(userId);
 	}
 	
 	

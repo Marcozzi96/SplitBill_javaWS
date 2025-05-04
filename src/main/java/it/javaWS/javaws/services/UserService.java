@@ -3,7 +3,6 @@ package it.javaWS.javaws.services;
 import it.javaWS.javaws.models.User;
 import it.javaWS.javaws.repositories.UserRepository;
 
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
