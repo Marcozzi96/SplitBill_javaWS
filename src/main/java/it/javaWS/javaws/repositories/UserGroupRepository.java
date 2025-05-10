@@ -1,5 +1,6 @@
 package it.javaWS.javaws.repositories;
 
+import java.util.List;
 import java.util.Set;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -22,5 +23,10 @@ public interface UserGroupRepository extends JpaRepository<UserGroup, UserGroupI
     void deleteByGroup_IdAndUser_IdIn(Long groupId, Set<Long> userIds);
     
     Set<UserGroup> findByGroup_IdAndUser_IdIn(Long groupId, Set<Long> userIds);
+    
+    boolean existsByGroupIdAndUserId(Long groupId, Long userId);
+    
+    List<UserGroup> findByGroupId(Long groupId);
+    
     
 }

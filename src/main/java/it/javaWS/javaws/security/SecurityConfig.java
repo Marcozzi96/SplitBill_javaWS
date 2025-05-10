@@ -25,9 +25,13 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
-                .csrf(csrf -> csrf
-                        .ignoringRequestMatchers("/h2-console/**") // disattiva CSRF solo per H2
-                )
+//        		.csrf(csrf -> csrf
+//                        .ignoringRequestMatchers("/h2-console/**","/auth/**") // disattiva CSRF solo per H2 e auth
+//                )
+                .csrf(csrf -> csrf.disable()) 
+                //un attacco CSRF si basa sull'uso di cookie/sessioni.
+                //Ma con JWT, l'autenticazione non si basa sui cookie → non è vulnerabile a CSRF 
+                //(se il token non è salvato nei cookie).
                 .headers(headers -> headers
                         .frameOptions(frameOptions -> frameOptions.sameOrigin()) // consente i frame H2
                 )

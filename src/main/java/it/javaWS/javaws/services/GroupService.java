@@ -15,6 +15,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class GroupService {
@@ -103,9 +104,11 @@ public class GroupService {
 		}
 
 		// Aggiungi utenti al set esistente
-		group.getUserGroups().addAll(userGroups);
+		//group.getUserGroups().addAll(userGroups);
 		
-		return groupRepository.save(group);
+		userGroupRepository.saveAll(userGroups);
+		
+		return getGroup(group.getId());
 
 //		return new GroupDTO(group).setUsers(group);
 	}
@@ -142,5 +145,20 @@ public class GroupService {
 		groupRepository.deleteById(id);
 		return true;
 	}
+	@Transactional(readOnly = true)
+	public Boolean isUserInGroup(Long groupId, Long userId) {
+	    return userGroupRepository.existsByGroupIdAndUserId(groupId, userId);
+	}
+	
+	@Transactional(readOnly = true)
+	public Set<User> getUsersInGroup(Long groupId) {
+	    List<UserGroup> userGroups = userGroupRepository.findByGroupId(groupId);
+
+	    return userGroups.stream()
+	            .map(UserGroup::getUser)
+	            .collect(Collectors.toSet());
+	}
+	
+	
 
 }

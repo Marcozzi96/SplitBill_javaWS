@@ -54,7 +54,16 @@ public class UserService implements UserDetailsService{
 	@Override
     public User loadUserByUsername(String username) throws UsernameNotFoundException {
         return userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        		.orElseThrow(() -> new UsernameNotFoundException("Credenziali non valide"));
     }
+	
+	public User getByUsername(String username) {
+		return userRepository.findByUsername(username)
+        		.orElse(null);
+	}
+	
+	public Boolean existsByUsername(String username) {
+		return userRepository.existsByUsername(username);
+	}
 
 }

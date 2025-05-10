@@ -4,7 +4,9 @@ import java.time.LocalDate;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import it.javaWS.javaws.models.Bill;
 import it.javaWS.javaws.models.Group;
+import it.javaWS.javaws.models.User;
 import lombok.Data;
 
 @Data
@@ -24,16 +26,15 @@ public class GroupDTO {
     	
     }
     
-    public GroupDTO setUsers(Group group) {
-    	this.users = group.getUserGroups()
+    public GroupDTO setUsers(Set<User> users) {
+    	this.users = users
         		.stream()
-        		.map(u-> new UserDTO(u.getUser()))
+        		.map(u-> new UserDTO(u))
         		.collect(Collectors.toSet());
 		return this;
     }
-    public GroupDTO setBills(Group group) {
-    	this.bills = group.getBills()
-    			.stream()
+    public GroupDTO setBills(Set<Bill> bills) {
+    	this.bills = bills.stream()
         		.map(bill->new BillDTO(bill))
         		.collect(Collectors.toSet());
 		return this;
