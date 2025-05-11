@@ -18,17 +18,19 @@ public class BillService {
     private final UserRepository userRepository;
     private final GroupRepository groupRepository;
     private final TransactionRepository transactionRepository;
+    private final GroupService groupService;
 
     public BillService(BillRepository billRepository, UserRepository userRepository,
-                       GroupRepository groupRepository, TransactionRepository transactionRepository) {
+                       GroupRepository groupRepository, TransactionRepository transactionRepository, GroupService groupService) {
         this.billRepository = billRepository;
         this.userRepository = userRepository;
         this.groupRepository = groupRepository;
         this.transactionRepository = transactionRepository;
+		this.groupService = groupService;
     }
 
     public Bill createBill(String description, BigDecimal amount, String notes,
-                           Long buyerId, Long groupId) {
+                           Long buyerId, Long groupId, Set<Long>) {
     	
     	if(BigDecimal.ZERO.compareTo(amount) > 0) return null; //amount è vuoto, 0 o negativo
 
@@ -53,7 +55,8 @@ public class BillService {
         Bill savedBill = billRepository.save(bill);
 
         // Equa divisione della spesa tra gli utenti del gruppo
-        List<User> groupUsers = new ArrayList<>(group.getUsers());
+        List<User> groupUsers = new ArrayList<>(groupService.getUsersInGroup(groupId));
+        
         BigDecimal splitAmount = amount.divide(BigDecimal.valueOf(groupUsers.size()), RoundingMode.HALF_UP);
         
         for (User user : groupUsers) {

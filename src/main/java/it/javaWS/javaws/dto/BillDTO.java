@@ -15,7 +15,7 @@ public class BillDTO {
     private BigDecimal amount;
     private String notes;
     private UserDTO buyer;
-    private GroupDTO group;
+    private Long groupId;
     
     public BillDTO(Bill bill) {
     	this.id = bill.getId();
@@ -25,6 +25,6 @@ public class BillDTO {
     	this.creationDate = bill.getDate();
     	
     	this.buyer = new UserDTO(bill.getBuyer());
-    	this.group = new GroupDTO(bill.getGroup());
+    	this.groupId = bill.getGroup().getId();
     }
 }

@@ -1,7 +1,12 @@
 package it.javaWS.javaws.controllers; 
 
+import it.javaWS.javaws.dto.BillDTO;
+import it.javaWS.javaws.dto.UserDTO;
 import it.javaWS.javaws.models.Bill;
 import it.javaWS.javaws.services.BillService;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -9,6 +14,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/bills")
+@PreAuthorize("isAuthenticated()")
 public class BillController {
 
     private final BillService billService;
@@ -18,12 +24,17 @@ public class BillController {
     }
 
     @PostMapping
-    public Bill createBill(@RequestParam String description,
+    public ResponseEntity<?> createBill(@RequestParam String description,
                            @RequestParam BigDecimal amount,
                            @RequestParam String notes,
                            @RequestParam Long buyerId,
                            @RequestParam Long groupId) {
-        return billService.createBill(description, amount, notes, buyerId, groupId);
+    	
+    	Bill bill = billService.createBill(description, amount, notes, buyerId, groupId);
+    	
+    	BillDTO dto = new BillDTO(bill);
+    	
+        return ResponseEntity.ok(dto);
     }
 
     @GetMapping("/group/{groupId}")
