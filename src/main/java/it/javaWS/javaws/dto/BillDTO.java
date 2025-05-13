@@ -2,29 +2,41 @@ package it.javaWS.javaws.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import it.javaWS.javaws.models.Bill;
+import it.javaWS.javaws.models.Transaction;
 import lombok.Data;
 
 @Data
 public class BillDTO {
 	private Long id;
 
-    private String description;
-    private LocalDate creationDate;
-    private BigDecimal amount;
-    private String notes;
-    private UserDTO buyer;
-    private Long groupId;
-    
-    public BillDTO(Bill bill) {
-    	this.id = bill.getId();
-    	this.description = bill.getDescription();
-    	this.amount = bill.getAmount();
-    	this.notes = bill.getNotes();
-    	this.creationDate = bill.getDate();
-    	
-    	this.buyer = new UserDTO(bill.getBuyer());
-    	this.groupId = bill.getGroup().getId();
-    }
+	private String description;
+	private LocalDate creationDate;
+	private BigDecimal amount;
+	private String notes;
+	private UserDTO buyer;
+	private Long groupId;
+	private Set<TransactionDTO> transactionDTO;
+
+	public BillDTO(Bill bill) {
+		this.id = bill.getId();
+		this.description = bill.getDescription();
+		this.amount = bill.getAmount();
+		this.notes = bill.getNotes();
+		this.creationDate = bill.getDate();
+
+		this.buyer = new UserDTO(bill.getBuyer());
+		this.groupId = bill.getGroup().getId();
+
+		this.transactionDTO = bill.getTransactions().stream().map(t -> new TransactionDTO(t))
+				.collect(Collectors.toSet());
+
+	}
+
+	public void setTransactions(Set<TransactionDTO> transactions) {
+		this.transactionDTO = transactions;
+	}
 }

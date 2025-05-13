@@ -8,6 +8,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -33,7 +35,7 @@ public class BillService {
         this.transactionRepository = transactionRepository;
 		this.groupService = groupService;
     }
-
+    
     public Bill createBill(String description, BigDecimal amount, String notes,
     		User buyer, Group group, Map<User, BigDecimal> usersDebit) {
     	
@@ -51,6 +53,8 @@ public class BillService {
         // Equa divisione della spesa tra gli utenti del gruppo
         //List<User> groupUsers = new ArrayList<>(groupService.getUsersInGroup(groupId));
         
+        BigDecimal a = new BigDecimal(0);
+        savedBill.setTransactions(new LinkedList<Transaction>());
         
         for (User user : usersDebit.keySet()) {
             if (!user.getId().equals(buyer.getId())) {
@@ -58,11 +62,19 @@ public class BillService {
                 t.setUser(user);
                 t.setBill(savedBill);
                 t.setGroup(group);
-                t.setAmount(usersDebit.get(user));
-                transactionRepository.save(t);
+                t.setAmount((usersDebit.get(user).multiply(new BigDecimal(-1)))); 
+                a = a.add(usersDebit.get(user));
+                savedBill.getTransactions().add(transactionRepository.save(t));
             }
         }
-
+        Transaction t = new Transaction();
+        
+        t.setUser(buyer);
+        t.setBill(savedBill);
+        t.setGroup(group);
+        t.setAmount(a); //devo mettere quanto ha prestato
+        savedBill.getTransactions().add(transactionRepository.save(t));
+        
         return savedBill;
     }
 
