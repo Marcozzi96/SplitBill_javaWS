@@ -9,7 +9,10 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class BillService {
@@ -17,33 +20,24 @@ public class BillService {
     private final BillRepository billRepository;//
     private final UserRepository userRepository;
     private final GroupRepository groupRepository;
+    private final UserGroupRepository userGroupRepository;
     private final TransactionRepository transactionRepository;
     private final GroupService groupService;
 
     public BillService(BillRepository billRepository, UserRepository userRepository,
-                       GroupRepository groupRepository, TransactionRepository transactionRepository, GroupService groupService) {
+                       GroupRepository groupRepository, TransactionRepository transactionRepository, GroupService groupService, UserGroupRepository userGroupRepository) {
         this.billRepository = billRepository;
         this.userRepository = userRepository;
         this.groupRepository = groupRepository;
+		this.userGroupRepository = userGroupRepository;
         this.transactionRepository = transactionRepository;
 		this.groupService = groupService;
     }
 
     public Bill createBill(String description, BigDecimal amount, String notes,
-                           Long buyerId, Long groupId, Set<Long>) {
-    	
-    	if(BigDecimal.ZERO.compareTo(amount) > 0) return null; //amount è vuoto, 0 o negativo
-
-    	Optional<User> buyerOpt = userRepository.findById(buyerId);
-    	Optional<Group> groupOpt = groupRepository.findById(groupId);
-        
-    	if(buyerOpt.isEmpty() || groupOpt.isEmpty()) return null; //buyerId o groupId non validi
+    		User buyer, Group group, Map<User, BigDecimal> usersDebit) {
     	
     	
-    	
-        User buyer = buyerOpt.get();
-        Group group = groupOpt.get();
-
         Bill bill = new Bill();
         bill.setDescription(description);
         bill.setAmount(amount);
@@ -55,17 +49,16 @@ public class BillService {
         Bill savedBill = billRepository.save(bill);
 
         // Equa divisione della spesa tra gli utenti del gruppo
-        List<User> groupUsers = new ArrayList<>(groupService.getUsersInGroup(groupId));
+        //List<User> groupUsers = new ArrayList<>(groupService.getUsersInGroup(groupId));
         
-        BigDecimal splitAmount = amount.divide(BigDecimal.valueOf(groupUsers.size()), RoundingMode.HALF_UP);
         
-        for (User user : groupUsers) {
+        for (User user : usersDebit.keySet()) {
             if (!user.getId().equals(buyer.getId())) {
                 Transaction t = new Transaction();
                 t.setUser(user);
                 t.setBill(savedBill);
                 t.setGroup(group);
-                t.setAmount(splitAmount);
+                t.setAmount(usersDebit.get(user));
                 transactionRepository.save(t);
             }
         }

@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 @Data
 @NoArgsConstructor
@@ -21,7 +22,10 @@ public class Bill {
     private LocalDate date;
     private BigDecimal amount;
     private String notes;
-
+    
+    @ManyToMany@JoinTable( name = "debtors_bill", joinColumns = @JoinColumn(name = "debtor_id", referencedColumnName = "id"), inverseJoinColumns = @JoinColumn(name = "bill_id", referencedColumnName = "id"))
+    private Set<User> debtors;
+    
     @ManyToOne
     @JoinColumn(name = "buyer_id")
     private User buyer;

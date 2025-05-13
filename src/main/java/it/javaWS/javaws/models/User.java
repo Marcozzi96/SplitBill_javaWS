@@ -42,7 +42,10 @@ public class User implements UserDetails {
 	private List<Transaction> transactions;
 
 	@OneToMany(mappedBy = "buyer")
-	private List<Bill> bills;
+	private List<Bill> billsCredit;
+	
+//	@OneToMany(mappedBy = "client")
+//	private List<Bill> billsDebit;
 
 	@Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

@@ -159,6 +159,9 @@ public class GroupService {
 	            .collect(Collectors.toSet());
 	}
 	
+	public Set<UserGroup> getUserGroup(Long groupId, Set<Long> userIds){
+		return userGroupRepository.findByGroup_IdAndUser_IdIn(groupId, userIds);
+	}
 	
 
 }
