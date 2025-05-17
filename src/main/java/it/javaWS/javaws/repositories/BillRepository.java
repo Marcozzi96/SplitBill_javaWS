@@ -8,4 +8,10 @@ import java.util.List;
 
 public interface BillRepository extends JpaRepository<Bill, Long> {
     List<Bill> findByGroupId(Long groupId);
+    
+    List<Bill> findByDebtors_Id(Long userId);
+
+    List<Bill> findByBuyer_Id(Long userId);
+    
+    
 }

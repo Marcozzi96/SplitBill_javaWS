@@ -2,7 +2,10 @@ package it.javaWS.javaws.services;
 
 import it.javaWS.javaws.models.*;
 import it.javaWS.javaws.repositories.*;
+
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -80,6 +83,18 @@ public class BillService {
 
     public List<Bill> getBillsByGroup(Long groupId) {
         return billRepository.findByGroupId(groupId);
+    }
+    
+    public List<Bill> getBillsWhereUserIsBuyer(Long userId) {
+        return billRepository.findByBuyer_Id(userId);
+    }
+    
+    public List<Bill> getBillsWhereUserIsDebtor(Long userId) {
+        return billRepository.findByDebtors_Id(userId);
+    }
+    
+    public List<Transaction> getTransactionsByBillId(Long billId) {
+        return transactionRepository.findByBill_Id(billId);
     }
     
     public void deleteBill(Long id) {

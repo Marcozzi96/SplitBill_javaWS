@@ -1,11 +1,13 @@
-package it.javaWS.javaws.controllers; 
+package it.javaWS.javaws.controllers;
 
 import it.javaWS.javaws.dto.BillDTO;
+import it.javaWS.javaws.dto.TransactionDTO;
 import it.javaWS.javaws.dto.UserDTO;
 import it.javaWS.javaws.models.Bill;
 import it.javaWS.javaws.models.Group;
 import it.javaWS.javaws.models.User;
 import it.javaWS.javaws.models.UserGroup;
+import it.javaWS.javaws.security.JwtUtil;
 import it.javaWS.javaws.services.BillService;
 import it.javaWS.javaws.services.GroupService;
 import it.javaWS.javaws.services.UserService;
@@ -28,64 +30,117 @@ import java.util.stream.Collectors;
 @PreAuthorize("isAuthenticated()")
 public class BillController {
 
-    private final BillService billService;
-    private final UserService userService;
-    private final GroupService groupService;
+	private final BillService billService;
+	private final UserService userService;
+	private final GroupService groupService;
+	private final JwtUtil jwtUtil;
 
-    public BillController(BillService billService, UserService userService, GroupService groupService) {
-        this.billService = billService;
+	public BillController(BillService billService, UserService userService, GroupService groupService,
+			JwtUtil jwtUtil) {
+		this.billService = billService;
 		this.userService = userService;
 		this.groupService = groupService;
-    }
+		this.jwtUtil = jwtUtil;
+	}
 
-    @PostMapping
-    public ResponseEntity<?> createBill(@RequestParam String description,
-                           @RequestParam BigDecimal amount,
-                           @RequestParam String notes,
-                           @RequestParam Long buyerId,
-                           @RequestParam Long groupId,
-                           @RequestBody Map<Long, BigDecimal> usersDebit) {
-    	
-    	if(BigDecimal.ZERO.compareTo(amount) > 0) 
-    		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "")); //amount è vuoto, 0 o negativo
-    	Optional<User> buyerOpt = userService.getUser(buyerId);
-    	
-    	Group group = groupService.getGroup(groupId);
+	@PostMapping("/new")
+	public ResponseEntity<?> createBill(@RequestParam String description, @RequestParam BigDecimal amount,
+			@RequestParam String notes, @RequestParam Long buyerId, @RequestParam Long groupId,
+			@RequestBody Map<Long, BigDecimal> usersDebit) {
 
-    	Set<UserGroup> userGroups = groupService.getUserGroup(groupId, usersDebit.keySet());
-    	
-    	//Set<UserGroup> userGroups = userGroupRepository.findByGroup_IdAndUser_IdIn(groupId, usersDebit.keySet());
-    	if(userGroups.size() != usersDebit.size()) {
-    		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Non tutti i debitori fanno parte del gruppo")); //NON TUTTI I CLIENTS FANNO PARTE DEL GRUPPO
-    	}
-    	Set<User> clients = userGroups.stream().map(ug->ug.getUser()).collect(Collectors.toSet());
-        
-    	if(buyerOpt.isEmpty() || group == null) 
-    		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "buyerId o groupId non validi")); //buyerId o groupId non validi
-    	
-        User buyer = buyerOpt.get();
-    	
-    	Map<User,BigDecimal> usersDebitConvertito = new HashMap<User, BigDecimal>();
-    	
-    	for(User user : clients) {
-    		usersDebitConvertito.put(user, usersDebit.get(user.getId()));
-    	}
-    	Bill bill = billService.createBill(description, amount, notes, buyer, group, usersDebitConvertito);
-    	 
-    		
-    	BillDTO dto = new BillDTO(bill);
-    	
-        return ResponseEntity.ok(dto);
-    }
+		if (BigDecimal.ZERO.compareTo(amount) > 0)
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "")); // amount è vuoto, 0 o
+																							// negativo
+		Optional<User> buyerOpt = userService.getUser(buyerId);
 
-    @GetMapping("/group/{groupId}")
-    public List<Bill> getBillsByGroup(@PathVariable Long groupId) {
-        return billService.getBillsByGroup(groupId);
-    }
-    
-    @DeleteMapping("/{id}")
-    public void deleteBill(@PathVariable Long id) {
-        billService.deleteBill(id);
-    }
+		Group group = groupService.getGroup(groupId);
+
+		Set<UserGroup> userGroups = groupService.getUserGroup(groupId, usersDebit.keySet());
+
+		// Set<UserGroup> userGroups =
+		// userGroupRepository.findByGroup_IdAndUser_IdIn(groupId, usersDebit.keySet());
+		if (userGroups.size() != usersDebit.size()) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+					.body(Map.of("error", "Non tutti i debitori fanno parte del gruppo")); // NON TUTTI I CLIENTS FANNO
+																							// PARTE DEL GRUPPO
+		}
+		Set<User> clients = userGroups.stream().map(ug -> ug.getUser()).collect(Collectors.toSet());
+
+		if (buyerOpt.isEmpty() || group == null)
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "buyerId o groupId non validi")); // buyerId
+																														// o
+																														// groupId
+																														// non
+																														// validi
+
+		User buyer = buyerOpt.get();
+
+		Map<User, BigDecimal> usersDebitConvertito = new HashMap<User, BigDecimal>();
+
+		for (User user : clients) {
+			usersDebitConvertito.put(user, usersDebit.get(user.getId()));
+		}
+		Bill bill = billService.createBill(description, amount, notes, buyer, group, usersDebitConvertito);
+
+		BillDTO dto = new BillDTO(bill);
+
+		return ResponseEntity.ok(dto);
+	}
+
+	@GetMapping("/group/{groupId}")
+	public List<Bill> getBillsByGroup(@PathVariable Long groupId) {
+
+		return billService.getBillsByGroup(groupId);
+	}
+
+	@GetMapping("/getWhereImBuyer")
+	public ResponseEntity<?> getBillsWhereUserIsBuyer(@RequestHeader("Authorization") String authHeader) {
+
+		String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
+
+		User user = userService.getUser(jwtUtil.extractUserId(token)).orElse(null);
+		if (user == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Token non valido"));
+		}
+
+		List<Bill> bills = billService.getBillsWhereUserIsBuyer(user.getId());
+
+		List<BillDTO> dtoList = bills.stream().map(b -> {
+
+			Set<TransactionDTO> transactions = billService.getTransactionsByBillId(b.getId()).stream()
+					.map(t -> new TransactionDTO(t)).collect(Collectors.toSet());
+
+			BillDTO dto = new BillDTO(b);
+			dto.setTransactions(transactions);
+			return dto;
+		}).toList();
+
+		return ResponseEntity.ok(dtoList);
+
+	}
+
+	@GetMapping("/getWhereImDebtor")
+	public ResponseEntity<?> getBillsWhereUserIsDebtor(@PathVariable Long userId) {
+
+		List<Bill> bills = billService.getBillsWhereUserIsDebtor(userId);
+
+		List<BillDTO> dtoList = bills.stream().map(b -> {
+
+			Set<TransactionDTO> transactions = billService.getTransactionsByBillId(b.getId()).stream()
+					.map(t -> new TransactionDTO(t)).collect(Collectors.toSet());
+
+			BillDTO dto = new BillDTO(b);
+			dto.setTransactions(transactions);
+			return dto;
+		}).toList();
+
+		return ResponseEntity.ok(dtoList);
+
+	}
+
+	@DeleteMapping("/{id}")
+	public void deleteBill(@PathVariable Long id) {
+		billService.deleteBill(id);
+	}
 
 }

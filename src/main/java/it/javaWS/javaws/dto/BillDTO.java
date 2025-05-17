@@ -19,7 +19,7 @@ public class BillDTO {
 	private String notes;
 	private UserDTO buyer;
 	private Long groupId;
-	private Set<TransactionDTO> transactionDTO;
+	private Set<TransactionDTO> transactions;
 
 	public BillDTO(Bill bill) {
 		this.id = bill.getId();
@@ -31,12 +31,9 @@ public class BillDTO {
 		this.buyer = new UserDTO(bill.getBuyer());
 		this.groupId = bill.getGroup().getId();
 
-		this.transactionDTO = bill.getTransactions().stream().map(t -> new TransactionDTO(t))
-				.collect(Collectors.toSet());
+		
 
 	}
 
-	public void setTransactions(Set<TransactionDTO> transactions) {
-		this.transactionDTO = transactions;
-	}
+
 }
