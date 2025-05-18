@@ -44,6 +44,15 @@ public class User implements UserDetails {
 	@OneToMany(mappedBy = "buyer")
 	private List<Bill> billsCredit;
 	
+    // Amicizie dove l'utente è id_utente1
+    @OneToMany(mappedBy = "utente1")
+    private Set<Friendship> richiesteInviate;
+
+    // Amicizie dove l'utente è id_utente2
+    @OneToMany(mappedBy = "utente2")
+    private Set<Friendship> richiesteRicevute;
+
+	
 //	@OneToMany(mappedBy = "client")
 //	private List<Bill> billsDebit;
 

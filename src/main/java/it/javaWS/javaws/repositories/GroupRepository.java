@@ -4,10 +4,11 @@ import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
 
 import it.javaWS.javaws.models.Group;
 import it.javaWS.javaws.models.User;
-
+@Repository
 public interface GroupRepository extends JpaRepository<Group, Long> {
 
     // 1. Trova i gruppi in base all'utente
