@@ -36,7 +36,7 @@ public class SecurityConfig {
                         .frameOptions(frameOptions -> frameOptions.sameOrigin()) // consente i frame H2
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**", "/h2-console/**").permitAll() // accesso pubblico a H2 e auth
+                        .requestMatchers("/auth/**", "/h2-console/**", "/status/**").permitAll() // accesso pubblico a H2 e auth
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess
