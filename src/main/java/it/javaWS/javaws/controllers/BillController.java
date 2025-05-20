@@ -2,7 +2,6 @@ package it.javaWS.javaws.controllers;
 
 import it.javaWS.javaws.dto.BillDTO;
 import it.javaWS.javaws.dto.TransactionDTO;
-import it.javaWS.javaws.dto.UserDTO;
 import it.javaWS.javaws.models.Bill;
 import it.javaWS.javaws.models.Group;
 import it.javaWS.javaws.models.User;

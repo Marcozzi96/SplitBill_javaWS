@@ -1,10 +1,6 @@
 package it.javaWS.javaws.models;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Set;
 
 import org.hibernate.annotations.Check;
 

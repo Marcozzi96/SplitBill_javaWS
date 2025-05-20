@@ -2,20 +2,15 @@ package it.javaWS.javaws.controllers;
 
 import it.javaWS.javaws.dto.GroupDTO;
 import it.javaWS.javaws.models.Group;
-import it.javaWS.javaws.models.User;
-import it.javaWS.javaws.models.UserGroup;
-import it.javaWS.javaws.repositories.GroupRepository;
 import it.javaWS.javaws.repositories.UserGroupRepository;
 import it.javaWS.javaws.security.JwtUtil;
 import it.javaWS.javaws.services.GroupService;
-import it.javaWS.javaws.services.UserService;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -27,13 +22,11 @@ public class GroupController {
 
 	private final GroupService groupService;
 	private final UserGroupRepository userGroupRepository;
-	private final UserService userService;
 	private final JwtUtil jwtUtil;
 
-	public GroupController(GroupService groupService, JwtUtil jwtUtil, UserGroupRepository userGroupRepository, UserService userService) {
+	public GroupController(GroupService groupService, JwtUtil jwtUtil, UserGroupRepository userGroupRepository) {
 		this.groupService = groupService;
 		this.userGroupRepository = userGroupRepository;
-		this.userService = userService;
 		this.jwtUtil = jwtUtil;
 	}
 

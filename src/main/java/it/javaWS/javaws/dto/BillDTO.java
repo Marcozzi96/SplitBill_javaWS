@@ -3,15 +3,13 @@ package it.javaWS.javaws.dto;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import it.javaWS.javaws.models.Bill;
-import it.javaWS.javaws.models.Transaction;
 import lombok.Data;
 
 @Data
 public class BillDTO {
-	private Long id;
+	private Long BillId;
 
 	private String description;
 	private LocalDate creationDate;
@@ -22,7 +20,7 @@ public class BillDTO {
 	private Set<TransactionDTO> transactions;
 
 	public BillDTO(Bill bill) {
-		this.id = bill.getId();
+		this.BillId = bill.getId();
 		this.description = bill.getDescription();
 		this.amount = bill.getAmount();
 		this.notes = bill.getNotes();

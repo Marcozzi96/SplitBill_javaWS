@@ -3,40 +3,24 @@ package it.javaWS.javaws.services;
 import it.javaWS.javaws.models.*;
 import it.javaWS.javaws.repositories.*;
 
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.PathVariable;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 public class BillService {
 
     private final BillRepository billRepository;//
-    private final UserRepository userRepository;
-    private final GroupRepository groupRepository;
-    private final UserGroupRepository userGroupRepository;
     private final TransactionRepository transactionRepository;
-    private final GroupService groupService;
 
-    public BillService(BillRepository billRepository, UserRepository userRepository,
-                       GroupRepository groupRepository, TransactionRepository transactionRepository, GroupService groupService, UserGroupRepository userGroupRepository) {
+    public BillService(BillRepository billRepository,
+                       GroupRepository groupRepository, TransactionRepository transactionRepository) {
         this.billRepository = billRepository;
-        this.userRepository = userRepository;
-        this.groupRepository = groupRepository;
-		this.userGroupRepository = userGroupRepository;
         this.transactionRepository = transactionRepository;
-		this.groupService = groupService;
     }
     
     public Bill createBill(String description, BigDecimal amount, String notes,

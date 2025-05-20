@@ -11,7 +11,7 @@ import lombok.Data;
 
 @Data
 public class GroupDTO {
-    private Long id;
+    private Long groupId;
     private String name;
     private String description;
     private LocalDate creationDate;
@@ -19,7 +19,7 @@ public class GroupDTO {
     private Set<BillDTO> bills;
 
     public GroupDTO(Group group) {
-    	this.setId(group.getId());
+    	this.setGroupId(group.getId());
     	this.setName(group.getName());
     	this.setDescription(group.getDescription());
     	this.setCreationDate(group.getCreationDate());

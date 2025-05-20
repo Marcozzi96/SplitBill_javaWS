@@ -7,12 +7,12 @@ import lombok.Data;
 
 @Data
 public class TransactionDTO {
-	private Long id;
+	private Long transactionId;
 	private BigDecimal amount;
 	private Long userId;
 	
 	public TransactionDTO(Transaction transaction) {
-		this.id = transaction.getId();
+		this.transactionId = transaction.getId();
 		this.amount = transaction.getAmount();
 		this.userId = transaction.getUser().getId();
 	}
