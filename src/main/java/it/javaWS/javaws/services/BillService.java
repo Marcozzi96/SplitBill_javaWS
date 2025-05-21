@@ -72,13 +72,17 @@ public class BillService {
     public List<Bill> getBillsWhereUserIsBuyer(Long userId) {
         return billRepository.findByBuyer_Id(userId);
     }
-    
-    public List<Bill> getBillsWhereUserIsDebtor(Long userId) {
-        return billRepository.findByDebtors_Id(userId);
-    }
+//    
+//    public List<Bill> getBillsWhereUserIsDebtor(Long userId) {
+//        return billRepository.findByDebtors_Id(userId);
+//    }
     
     public List<Transaction> getTransactionsByBillId(Long billId) {
         return transactionRepository.findByBill_Id(billId);
+    }
+    
+    public List<Bill> getBillsByUserId(Long userId) {
+        return billRepository.findBillsByUserIdThroughTransactions(userId);
     }
     
     public void deleteBill(Long id) {
