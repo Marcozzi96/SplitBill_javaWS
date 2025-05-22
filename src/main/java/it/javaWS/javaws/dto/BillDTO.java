@@ -4,12 +4,25 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+
 import it.javaWS.javaws.models.Bill;
 import lombok.Data;
 
+@JsonPropertyOrder({
+	"billId",
+	"creationDate",
+	"description",
+	"notes",
+	"groupId",
+	"amount",
+	"buyer",
+	"transactions"
+})
 @Data
 public class BillDTO {
-	private Long BillId;
+	
+	private Long billId;
 
 	private String description;
 	private LocalDate creationDate;
@@ -20,7 +33,7 @@ public class BillDTO {
 	private Set<TransactionDTO> transactions;
 
 	public BillDTO(Bill bill) {
-		this.BillId = bill.getId();
+		this.billId = bill.getId();
 		this.description = bill.getDescription();
 		this.amount = bill.getAmount();
 		this.notes = bill.getNotes();

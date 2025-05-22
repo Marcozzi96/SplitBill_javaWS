@@ -3,8 +3,8 @@ package it.javaWS.javaws.controllers;
 import it.javaWS.javaws.dto.GroupDTO;
 import it.javaWS.javaws.models.Group;
 import it.javaWS.javaws.repositories.UserGroupRepository;
-import it.javaWS.javaws.security.JwtUtil;
 import it.javaWS.javaws.services.GroupService;
+import it.javaWS.javaws.utils.JwtUtil;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

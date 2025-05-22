@@ -3,8 +3,8 @@ package it.javaWS.javaws.controllers;
 import it.javaWS.javaws.dto.AuthResponse;
 import it.javaWS.javaws.dto.UserDTO;
 import it.javaWS.javaws.models.User;
-import it.javaWS.javaws.security.JwtUtil;
 import it.javaWS.javaws.services.UserService;
+import it.javaWS.javaws.utils.JwtUtil;
 
 import java.util.Map;
 

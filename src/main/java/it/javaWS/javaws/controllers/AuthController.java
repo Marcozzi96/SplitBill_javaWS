@@ -17,8 +17,9 @@ import it.javaWS.javaws.dto.AuthRequest;
 import it.javaWS.javaws.dto.AuthResponse;
 import it.javaWS.javaws.dto.UserDTO;
 import it.javaWS.javaws.models.User;
-import it.javaWS.javaws.security.JwtUtil;
 import it.javaWS.javaws.services.UserService;
+import it.javaWS.javaws.utils.EmailUtil;
+import it.javaWS.javaws.utils.JwtUtil;
 
 @RestController
 @RequestMapping("/auth")
@@ -28,12 +29,14 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final UserService userService;
     private final JwtUtil jwtUtil;
+    private final EmailUtil emailUtil;
 
-    public AuthController(AuthenticationManager authenticationManager, PasswordEncoder passwordEncoder, UserService userService, JwtUtil jwtUtil) {
+    public AuthController(AuthenticationManager authenticationManager, PasswordEncoder passwordEncoder, UserService userService, JwtUtil jwtUtil, EmailUtil emailUtil) {
         this.authenticationManager = authenticationManager;
 		this.passwordEncoder = passwordEncoder;
         this.userService = userService;
         this.jwtUtil = jwtUtil;
+		this.emailUtil = emailUtil;
     }
 
     @PostMapping("/login")
@@ -61,7 +64,8 @@ public class AuthController {
         if (newUser == null)
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Username o Email già utilizzati"));
 
-//        String token = jwtUtil.generateToken(user);
+        emailUtil.sendEmail(newUser.getEmail(), "SplitBill registration", emailUtil.creaCorpoEmailBenvenuto(newUser.getUsername()));
+        
         return ResponseEntity.ok(new UserDTO(user));
     }
 }
