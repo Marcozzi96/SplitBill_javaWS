@@ -7,10 +7,10 @@ import it.javaWS.javaws.models.Group;
 import it.javaWS.javaws.models.User;
 import it.javaWS.javaws.models.UserGroup;
 import it.javaWS.javaws.repositories.UserGroupRepository;
-import it.javaWS.javaws.security.JwtUtil;
 import it.javaWS.javaws.services.BillService;
 import it.javaWS.javaws.services.GroupService;
 import it.javaWS.javaws.services.UserService;
+import it.javaWS.javaws.utils.JwtUtil;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

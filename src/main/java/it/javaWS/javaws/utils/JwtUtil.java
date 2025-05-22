@@ -1,4 +1,4 @@
-package it.javaWS.javaws.security;
+package it.javaWS.javaws.utils;
 
 import io.jsonwebtoken.*;
 import it.javaWS.javaws.models.User;

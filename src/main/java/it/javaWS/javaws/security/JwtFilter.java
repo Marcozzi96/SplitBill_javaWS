@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import it.javaWS.javaws.services.UserService;
+import it.javaWS.javaws.utils.JwtUtil;
+
 import java.io.IOException;
 
 @Component
