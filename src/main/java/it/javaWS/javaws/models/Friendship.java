@@ -21,7 +21,7 @@ import lombok.Data;
 @Data
 @Entity
 @Check(constraints = "user1_id < user2_id")
-@Table(name = "friendship", uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "user2_id"}))
+@Table(name = "friendship", uniqueConstraints = @UniqueConstraint(columnNames = {"user1_id", "user2_id"}))
 public class Friendship {
 
     @Id
