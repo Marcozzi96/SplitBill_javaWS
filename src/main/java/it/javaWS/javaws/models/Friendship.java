@@ -30,11 +30,11 @@ public class Friendship {
 
     @ManyToOne
     @JoinColumn(name = "user1_id", nullable = false)
-    private User utente1;
+    private User user1;
 
     @ManyToOne
     @JoinColumn(name = "user2_id", nullable = false)
-    private User utente2;
+    private User user2;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
