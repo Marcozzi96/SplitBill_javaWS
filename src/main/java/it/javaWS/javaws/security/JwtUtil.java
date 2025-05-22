@@ -1,8 +1,9 @@
 package it.javaWS.javaws.security;
 
 import io.jsonwebtoken.*;
-import io.jsonwebtoken.security.Keys;
+import it.javaWS.javaws.models.User;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
@@ -11,11 +12,28 @@ import java.util.Map;
 import java.util.function.Function;
 
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 
 @Component
 public class JwtUtil {
-
-    private final SecretKey SECRET =  Keys.secretKeyFor(SignatureAlgorithm.HS512); // meglio da properties/env
+    
+    private SecretKey secretKey = null;
+    
+    @Value("${jwt.secret}")
+    private String jwtSecret;
+    
+    @Value("${jwt.validity}")
+    private long jwtValidity;
+    
+    // Convert the string secret key to a SecretKey object
+    private SecretKey getSigningKey() {
+    	if(this.secretKey == null) {
+    		byte[] keyBytes = jwtSecret.getBytes();
+    		this.secretKey = new SecretKeySpec(keyBytes, SignatureAlgorithm.HS512.getJcaName());
+    	}
+    	return this.secretKey;
+        
+    }
     
 	public String extractUsername(String token) {
 		return extractClaim(token, Claims::getSubject);
@@ -31,18 +49,18 @@ public class JwtUtil {
 	}
 
 	public Claims extractAllClaims(String token) {
-		return Jwts.parserBuilder().setSigningKey(SECRET).build().parseClaimsJws(token).getBody();
+		return Jwts.parserBuilder().setSigningKey(getSigningKey()).build().parseClaimsJws(token).getBody();
 	}
 
 	public String generateToken(UserDetails userDetails) {
 		// Attenzione: assicurati che UserDetails sia una tua classe custom con getId()
-		var user = (it.javaWS.javaws.models.User) userDetails;
+		var user = (User) userDetails;
 
 		Map<String, Object> claims = Map.of("userId", user.getId());
 
 		return Jwts.builder().setClaims(claims).setSubject(user.getUsername()).setIssuedAt(new Date())
-				.setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24)) // 24 ore
-				.signWith(SECRET, SignatureAlgorithm.HS512).compact();
+				.setExpiration(new Date(System.currentTimeMillis() + 1000 * jwtValidity)) // 24 ore
+				.signWith(getSigningKey(), SignatureAlgorithm.HS512).compact();
 	}
 
 	public boolean validateToken(String token, UserDetails userDetails) {
