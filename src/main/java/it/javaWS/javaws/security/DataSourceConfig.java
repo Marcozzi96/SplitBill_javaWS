@@ -8,13 +8,13 @@ import org.springframework.boot.jdbc.DataSourceBuilder;
 import javax.sql.DataSource;
 import java.net.URI;
 
-//@Configuration
+@Configuration
 public class DataSourceConfig {
 
-    //@Value("${database.url}")
+    @Value("${database.url}")
     private String databaseUrl;
 
-    //@Bean
+    @Bean
     public DataSource dataSource() {
         try {
             URI dbUri = new URI(databaseUrl);
