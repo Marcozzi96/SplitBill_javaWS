@@ -16,18 +16,18 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
 
     @Query("""
         SELECT f FROM Friendship f
-        WHERE (f.utente1.id = :userId AND f.utente2.id = :otherId)
-           OR (f.utente2.id = :userId AND f.utente1.id = :otherId)
+        WHERE (f.user1.id = :userId AND f.user2.id = :otherId)
+           OR (f.user2.id = :userId AND f.user1.id = :otherId)
     """)
     Optional<Friendship> findBetweenUsers(@Param("userId") Long userId, @Param("otherId") Long otherId);
 
     @Query("""
         SELECT CASE
-            WHEN f.utente1.id = :userId THEN f.utente2
-            ELSE f.utente1
+            WHEN f.user1.id = :userId THEN f.user2
+            ELSE f.user1
         END
         FROM Friendship f
-        WHERE (f.utente1.id = :userId OR f.utente2.id = :userId)
+        WHERE (f.user1.id = :userId OR f.user2.id = :userId)
           AND f.stato = 'ACCETTATA'
     """)
     List<User> findFriendsOfUser(@Param("userId") Long userId);

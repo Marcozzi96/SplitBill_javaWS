@@ -89,8 +89,8 @@ public class UserService implements UserDetailsService{
 	        .orElseThrow(() -> new EntityNotFoundException("Utente non trovato"));
 
 	    Friendship friendship = new Friendship();
-	    friendship.setUtente1(user1);
-	    friendship.setUtente2(user2);
+	    friendship.setUser1(user1);
+	    friendship.setUser2(user2);
 	    friendship.setStato(StatoAmicizia.IN_ATTESA);
 	    friendship.setDataRichiesta(LocalDateTime.now());
 
