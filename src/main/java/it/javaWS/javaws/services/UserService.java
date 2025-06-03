@@ -30,7 +30,7 @@ public class UserService implements UserDetailsService{
 	@Transactional
 	public User createUser(User user) {
 
-		if (userRepository.findByEmailOrUsername(user.getEmail(), user.getUsername()).size() > 0)
+		if (userRepository.findByEmailOrUsernameIgnoreCase(user.getEmail(), user.getUsername()).size() > 0)
 			return null; // Username o Email già utilizzati
 		return userRepository.save(user);
 	}
@@ -60,12 +60,12 @@ public class UserService implements UserDetailsService{
 
 	@Override
     public User loadUserByUsername(String username) throws UsernameNotFoundException {
-        return userRepository.findByUsername(username)
+        return userRepository.findByUsernameIgnoreCase(username)
         		.orElseThrow(() -> new UsernameNotFoundException("Credenziali non valide"));
     }
 	
 	public User getByUsername(String username) {
-		return userRepository.findByUsername(username)
+		return userRepository.findByUsernameIgnoreCase(username)
         		.orElse(null);
 	}
 	
