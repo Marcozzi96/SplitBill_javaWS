@@ -6,6 +6,7 @@ import it.javaWS.javaws.models.User;
 import it.javaWS.javaws.services.UserService;
 import it.javaWS.javaws.utils.JwtUtil;
 
+import java.time.LocalDate;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
@@ -68,9 +69,28 @@ public class UserController {
 
 	}
 
-//	@DeleteMapping("/{id}")
-//	public Boolean deleteUser(@PathVariable Long id) {
-//		return userService.deleteUser(id);
-//	}
+	//Non elimino veramente l'account, ma modifico tutti i dati sensibili.
+	//La vera eliminazione dell'utente creerebbe problemi nelle relazioni per la gestione dei conti di gruppo.
+	@DeleteMapping("/delete")
+	public ResponseEntity<?> deleteUser(@RequestHeader("Authorization") String authHeader) {
+		String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
+
+		User userFromDB = userService.getUser(jwtUtil.extractUserId(token)).orElse(null);
+		if (userFromDB == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Token non valido"));
+		}
+		
+			userFromDB.setEmail("utente@eliminato");
+			userFromDB.setUsername("UtenteEliminato" + userFromDB.getId());
+			userFromDB.setPassword("UtenteEliminato" + userFromDB.getId() + LocalDate.now());
+			
+		User updated = userService.updateUser(userFromDB);
+		
+		if(updated==null) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Errore in fase di updateUser"));
+		}
+		return ResponseEntity.ok("Success");
+		
+	}
 
 }

@@ -11,10 +11,10 @@ import it.javaWS.javaws.models.User;
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
 	
-	@Query("select u from User u where u.email = ?1 or u.username = ?2")
-	Set<User> findByEmailOrUsername(String emailAddress, String username);
+	@Query("SELECT u FROM User u WHERE LOWER(u.email) = LOWER(?1) OR LOWER(u.username) = LOWER(?2)")
+	Set<User> findByEmailOrUsernameIgnoreCase(String email, String username);
 
-	Optional<User> findByUsername(String username);
+	Optional<User> findByUsernameIgnoreCase(String username);
 	
 	boolean existsByUsername(String username);
 }

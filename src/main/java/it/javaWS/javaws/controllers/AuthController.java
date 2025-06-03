@@ -58,7 +58,7 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody User user) {
         user.setRegDate(LocalDate.now());
-        user.setPassword(passwordEncoder.encode(user.getPassword())); // ✅ Più elegante
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
 
         User newUser = userService.createUser(user);
         if (newUser == null)
