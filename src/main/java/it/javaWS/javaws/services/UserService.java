@@ -72,6 +72,12 @@ public class UserService implements UserDetailsService{
 	public Boolean existsByUsername(String username) {
 		return userRepository.existsByUsername(username);
 	}
+	
+	public Boolean existsByUsernameOrEmail(User user) {
+		if (userRepository.findByEmailOrUsernameIgnoreCase(user.getEmail(), user.getUsername()).size() > 0)
+			return true; // Username o Email già utilizzati
+		return false;
+	}
 
 	public void inviaRichiestaAmicizia(Long userId, Long otherId) {
 	    if (userId.equals(otherId)) throw new IllegalArgumentException("Non puoi aggiungere te stesso");

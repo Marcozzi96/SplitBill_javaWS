@@ -8,6 +8,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -42,6 +43,13 @@ public class JwtUtil {
 	public Long extractUserId(String token) {
 		return extractAllClaims(token).get("userId", Long.class);
 	}
+	
+	public String extractPassword(String token) {
+		return extractAllClaims(token).get("password", String.class);
+	}
+	public String extractEmail(String token) {
+		return extractAllClaims(token).get("email", String.class);
+	}
 
 	public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
 		final Claims claims = extractAllClaims(token);
@@ -62,13 +70,23 @@ public class JwtUtil {
 				.setExpiration(new Date(System.currentTimeMillis() + 1000 * jwtValidity)) // 24 ore
 				.signWith(getSigningKey(), SignatureAlgorithm.HS512).compact();
 	}
+	
+	public String generateEmailToken(String username, String password, String email) {
+		Map<String, Object> claims = new HashMap<String, Object>();
+		claims.put("password", password);
+		claims.put("email", email);
+		return Jwts.builder().setClaims(claims).setSubject(username).setIssuedAt(new Date())
+				.setExpiration(new Date(System.currentTimeMillis() + 1000 * jwtValidity)) // 24 ore
+				.signWith(getSigningKey(), SignatureAlgorithm.HS512).compact();
+	}
 
 	public boolean validateToken(String token, UserDetails userDetails) {
 		final String username = extractUsername(token);
 		return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
 	}
 
-	private boolean isTokenExpired(String token) {
+
+	public boolean isTokenExpired(String token) {
 		return extractExpiration(token).before(new Date());
 	}
 
