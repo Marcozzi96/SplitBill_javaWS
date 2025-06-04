@@ -80,8 +80,8 @@ public class UserController {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Token non valido"));
 		}
 		
-			userFromDB.setEmail("utente@eliminato");
-			userFromDB.setUsername("UtenteEliminato" + userFromDB.getId());
+			userFromDB.setEmail("utente." + userFromDB.getId() + LocalDate.now() + "@eliminato");
+			userFromDB.setUsername("UtenteEliminato" + userFromDB.getId() + LocalDate.now());
 			userFromDB.setPassword("UtenteEliminato" + userFromDB.getId() + LocalDate.now());
 			
 		User updated = userService.updateUser(userFromDB);
