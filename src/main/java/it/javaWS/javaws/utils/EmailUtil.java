@@ -78,6 +78,23 @@ public class EmailUtil {
 	           "</body>" +
 	           "</html>";
 	}
+	
+	public String creaCorpoEmailConferma(String nomeUtente, String token) {
+	    String linkConferma = "http://localhost:8080/auth/confirmEmail?token=" + token;
+
+	    return "<html>" +
+	           "<body>" +
+	           "<p>Ciao " + nomeUtente + ",</p>" +
+	           "<p>Grazie per esserti registrato su <strong>SplitBill</strong>!</p>" +
+	           "<p>Per completare la registrazione, conferma il tuo indirizzo email cliccando sul link qui sotto:</p>" +
+	           "<p><a href=\"" + linkConferma + "\">Conferma la tua email</a></p>" +
+	           "<br>" +
+	           "<p>Se non hai richiesto questa registrazione, puoi ignorare questa email.</p>" +
+	           "<br>" +
+	           "<p>Il team di Composizioni&Co</p>" +
+	           "</body>" +
+	           "</html>";
+	}
 
 
 }
