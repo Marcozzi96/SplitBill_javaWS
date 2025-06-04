@@ -29,6 +29,9 @@ public class EmailUtil {
 
 	@Value("${mail.smtp.auth}")
 	private boolean smtpAuth;
+	
+	@Value("${environment.open.link}")
+	private String openLink;
 
 	@Value("${mail.smtp.starttls.enable}")
 	private boolean starttlsEnable;
@@ -80,7 +83,7 @@ public class EmailUtil {
 	}
 	
 	public String creaCorpoEmailConferma(String nomeUtente, String token) {
-	    String linkConferma = "http://localhost:8080/auth/confirmEmail?token=" + token;
+	    String linkConferma = openLink + "/auth/confirmEmail?token=" + token;
 
 	    return "<html>" +
 	           "<body>" +
