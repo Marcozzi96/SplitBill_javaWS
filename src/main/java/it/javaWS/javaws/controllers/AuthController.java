@@ -93,6 +93,7 @@ public class AuthController {
     		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Token già utilizzato"));
     	}
     	
+    	user.setRegDate(LocalDate.now());
     	user.setPassword(passwordEncoder.encode(password));
     	
     	User newUser = userService.createUser(user);
