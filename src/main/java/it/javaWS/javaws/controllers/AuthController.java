@@ -15,6 +15,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import it.javaWS.javaws.dto.AuthRequest;
 import it.javaWS.javaws.dto.AuthResponse;
 import it.javaWS.javaws.dto.UserDTO;
@@ -35,21 +38,27 @@ public class AuthController {
 
     public AuthController(AuthenticationManager authenticationManager, PasswordEncoder passwordEncoder, UserService userService, JwtUtil jwtUtil, EmailUtil emailUtil) {
         this.authenticationManager = authenticationManager;
-		this.passwordEncoder = passwordEncoder;
+        this.passwordEncoder = passwordEncoder;
         this.userService = userService;
         this.jwtUtil = jwtUtil;
-		this.emailUtil = emailUtil;
+        this.emailUtil = emailUtil;
     }
 
+    @Operation(
+        summary = "Login utente",
+        description = "Effettua l'autenticazione e restituisce un JWT token se le credenziali sono corrette"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Autenticazione avvenuta con successo"),
+        @ApiResponse(responseCode = "401", description = "Credenziali non valide")
+    })
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody AuthRequest request) {
         try {
-        	
             authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
+                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
             );
-			User user = userService.loadUserByUsername(request.getUsername());
-//            UserDetails user = userService.loadUserByUsername(request.getUsername());
+            User user = userService.loadUserByUsername(request.getUsername());
             String token = jwtUtil.generateToken(user);
             return ResponseEntity.ok(new AuthResponse(token, new UserDTO(user)));
         } catch (Exception e) {
@@ -57,52 +66,65 @@ public class AuthController {
         }
     }
 
+    @Operation(
+        summary = "Registrazione utente",
+        description = "Registra un nuovo utente e invia una mail di conferma"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Registrazione avvenuta con successo"),
+        @ApiResponse(responseCode = "400", description = "Username o email già utilizzati")
+    })
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody User user) {
-    	
-    	if(userService.existsByUsernameOrEmail(user)) {
-    		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Username o Email già utilizzati"));
-    	}
-//        user.setRegDate(LocalDate.now());
-        //user.setPassword(passwordEncoder.encode(user.getPassword()));
-        String token = jwtUtil.generateEmailToken(user.getUsername(),user.getPassword(), user.getEmail());
-//        User newUser = userService.createUser(user);
-//        if (newUser == null)
-//            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Username o Email già utilizzati"));
+    public ResponseEntity<?> register(@RequestBody AuthRequest request) {
+    	User user = new User();
+    	user.setUsername(request.getUsername());
+    	user.setEmail(request.getEmail());
+    	user.setPassword(request.getPassword());
+        if (userService.existsByUsernameOrEmail(user)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Username o Email già utilizzati"));
+        }
 
-        emailUtil.sendEmail(user.getEmail(), "SplitBill registration", emailUtil.creaCorpoEmailConferma(user.getUsername(),token));
-        
+        String token = jwtUtil.generateEmailToken(user.getUsername(), user.getPassword(), user.getEmail());
+        emailUtil.sendEmail(user.getEmail(), "SplitBill registration", emailUtil.creaCorpoEmailConferma(user.getUsername(), token));
+
         return ResponseEntity.ok("Conferma l'email all'indirizzo " + user.getEmail());
     }
-    
+
+    @Operation(
+        summary = "Conferma registrazione via email",
+        description = "Conferma la registrazione di un utente tramite il token inviato via email"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Email confermata e utente creato"),
+        @ApiResponse(responseCode = "400", description = "Token scaduto o non valido")
+    })
     @GetMapping("/confirmEmail")
     public ResponseEntity<?> confirmRegistration(@RequestParam String token) {
-    	String username = jwtUtil.extractUsername(token);
-    	String password = jwtUtil.extractPassword(token);
-    	String email = jwtUtil.extractEmail(token);
-    	
-    	User user = new User();
-    	user.setUsername(username);
-    	user.setEmail(email);
-    	
-    	if(jwtUtil.isTokenExpired(token)) {
-    		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Token scaduto"));
-    	}
-    	
-    	if(userService.existsByUsernameOrEmail(user)) {
-    		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Token già utilizzato"));
-    	}
-    	
-    	user.setRegDate(LocalDate.now());
-    	user.setPassword(passwordEncoder.encode(password));
-    	
-    	User newUser = userService.createUser(user);
-      if (newUser == null)
-          return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Token non valido"));
+        String username = jwtUtil.extractUsername(token);
+        String password = jwtUtil.extractPassword(token);
+        String email = jwtUtil.extractEmail(token);
 
-    	
-    	emailUtil.sendEmail(newUser.getEmail(), "SplitBill registration", emailUtil.creaCorpoEmailBenvenuto(newUser.getUsername()));
-    	
-    	return ResponseEntity.ok(new UserDTO(newUser));
+        User user = new User();
+        user.setUsername(username);
+        user.setEmail(email);
+
+        if (jwtUtil.isTokenExpired(token)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Token scaduto"));
+        }
+
+        if (userService.existsByUsernameOrEmail(user)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Token già utilizzato"));
+        }
+
+        user.setRegDate(LocalDate.now());
+        user.setPassword(passwordEncoder.encode(password));
+
+        User newUser = userService.createUser(user);
+        if (newUser == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Token non valido"));
+        }
+
+        emailUtil.sendEmail(newUser.getEmail(), "SplitBill registration", emailUtil.creaCorpoEmailBenvenuto(newUser.getUsername()));
+        return ResponseEntity.ok(new UserDTO(newUser));
     }
 }

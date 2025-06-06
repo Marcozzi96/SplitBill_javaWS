@@ -17,6 +17,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
@@ -28,6 +30,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/bills")
 @PreAuthorize("isAuthenticated()")
+@SecurityRequirement(name = "bearerAuth")
 public class BillController {
 
 	private final BillService billService;

@@ -4,8 +4,11 @@ import it.javaWS.javaws.dto.UserBalanceDTO;
 import it.javaWS.javaws.services.BalanceService;
 import org.springframework.web.bind.annotation.*;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+
 @RestController
 @RequestMapping("/balance")
+@SecurityRequirement(name = "bearerAuth")
 public class BalanceController {
 
     private final BalanceService balanceService;
