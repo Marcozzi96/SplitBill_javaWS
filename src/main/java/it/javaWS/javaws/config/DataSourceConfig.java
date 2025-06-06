@@ -1,4 +1,4 @@
-package it.javaWS.javaws.security;
+package it.javaWS.javaws.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

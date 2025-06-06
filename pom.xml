@@ -40,14 +40,14 @@
 			<scope>runtime</scope>
 		</dependency>
 		-->
-		
+
 		<!-- Postgresql -->
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
 			<scope>runtime</scope>
 		</dependency>
-		
+
 		<!-- Lombok (opzionale) -->
 		<dependency>
 			<groupId>org.projectlombok</groupId>
@@ -97,6 +97,11 @@
 			<groupId>com.sun.mail</groupId>
 			<artifactId>jakarta.mail</artifactId>
 			<version>2.0.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>2.3.0</version>
 		</dependency>
 
 	</dependencies>
