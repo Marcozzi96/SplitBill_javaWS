@@ -4,16 +4,13 @@ import it.javaWS.javaws.dto.GroupDTO;
 import it.javaWS.javaws.models.Group;
 import it.javaWS.javaws.models.User;
 import it.javaWS.javaws.repositories.UserGroupRepository;
-import it.javaWS.javaws.security.CustomUserDetails;
 import it.javaWS.javaws.services.GroupService;
-import it.javaWS.javaws.utils.JwtUtil;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,12 +30,10 @@ public class GroupController {
 
     private final GroupService groupService;
     private final UserGroupRepository userGroupRepository;
-    private final JwtUtil jwtUtil;
 
-    public GroupController(GroupService groupService, JwtUtil jwtUtil, UserGroupRepository userGroupRepository) {
+    public GroupController(GroupService groupService, UserGroupRepository userGroupRepository) {
         this.groupService = groupService;
         this.userGroupRepository = userGroupRepository;
-        this.jwtUtil = jwtUtil;
     }
 
     @Operation(summary = "Crea un nuovo gruppo", description = "Crea un gruppo e aggiunge gli utenti specificati (incluso il creator)")

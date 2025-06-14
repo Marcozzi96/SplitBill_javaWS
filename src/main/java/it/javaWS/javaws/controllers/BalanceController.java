@@ -1,7 +1,8 @@
 package it.javaWS.javaws.controllers;
 
-import it.javaWS.javaws.dto.UserBalanceDTO;
 import it.javaWS.javaws.services.BalanceService;
+
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -19,7 +20,8 @@ public class BalanceController {
 
     // GET /balance/3
     @GetMapping("/{userId}")
-    public UserBalanceDTO getUserBalance(@PathVariable Long userId) {
-        return balanceService.getDetailedBalance(userId);
+    public ResponseEntity<?> getUserBalance(@PathVariable Long userId) {
+//        return balanceService.getDetailedBalance(userId);
+        return ResponseEntity.ok(balanceService.getDetailedBalance(userId));
     }
 }
