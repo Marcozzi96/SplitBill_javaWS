@@ -35,6 +35,10 @@ public class Friendship {
     @ManyToOne
     @JoinColumn(name = "user2_id", nullable = false)
     private User user2;
+    
+    @ManyToOne
+    @JoinColumn(name = "user_tobe_confirmed_id", nullable = false)
+    private User userToBeConfirmed;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

@@ -15,9 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
-public class UserService implements UserDetailsService{
+public class UserService implements UserDetailsService {
 
 	private final UserRepository userRepository;
 	private final FriendshipRepository friendshipRepository;
@@ -59,20 +60,28 @@ public class UserService implements UserDetailsService{
 	}
 
 	@Override
-    public User loadUserByUsername(String username) throws UsernameNotFoundException {
-        return userRepository.findByUsernameIgnoreCase(username)
-        		.orElseThrow(() -> new UsernameNotFoundException("Credenziali non valide"));
-    }
-	
-	public User getByUsername(String username) {
+	public User loadUserByUsername(String username) throws UsernameNotFoundException {
 		return userRepository.findByUsernameIgnoreCase(username)
-        		.orElse(null);
+				.orElseThrow(() -> new UsernameNotFoundException("Credenziali non valide"));
 	}
-	
+
+	public User loadUserByEmailOrUsername(String email, String username) {
+		Set<User> users = userRepository.findByEmailOrUsernameIgnoreCase(email, username);
+		if (users.size() != 1) {
+			throw new IllegalStateException("Credenziali non valide");
+		}
+
+		return users.stream().findFirst().get();
+	}
+
+	public User getByUsername(String username) {
+		return userRepository.findByUsernameIgnoreCase(username).orElse(null);
+	}
+
 	public Boolean existsByUsername(String username) {
 		return userRepository.existsByUsername(username);
 	}
-	
+
 	public Boolean existsByUsernameOrEmail(User user) {
 		if (userRepository.findByEmailOrUsernameIgnoreCase(user.getEmail(), user.getUsername()).size() > 0)
 			return true; // Username o Email già utilizzati
@@ -80,56 +89,73 @@ public class UserService implements UserDetailsService{
 	}
 
 	public void inviaRichiestaAmicizia(Long userId, Long otherId) {
-	    if (userId.equals(otherId)) throw new IllegalArgumentException("Non puoi aggiungere te stesso");
+		if (userId.equals(otherId))
+			throw new IllegalArgumentException("Non puoi aggiungere te stesso");
 
-	    // Ordinamento per garantire utente1 < utente2
-	    Long user1Id = Math.min(userId, otherId);
-	    Long user2Id = Math.max(userId, otherId);
+		// Ordinamento per garantire utente1 < utente2
+		Long user1Id = Math.min(userId, otherId);
+		Long user2Id = Math.max(userId, otherId);
+		
 
-	    Optional<Friendship> existing = friendshipRepository.findBetweenUsers(user1Id, user2Id);
-	    if (existing.isPresent()) throw new IllegalStateException("Amicizia già esistente o in attesa");
+		Optional<Friendship> existing = friendshipRepository.findBetweenUsers(user1Id, user2Id);
+		if (existing.isPresent())
+			throw new IllegalStateException("Amicizia già esistente o in attesa");
 
-	    User user1 = userRepository.findById(user1Id)
-	        .orElseThrow(() -> new EntityNotFoundException("Utente non trovato"));
-	    User user2 = userRepository.findById(user2Id)
-	        .orElseThrow(() -> new EntityNotFoundException("Utente non trovato"));
+		User user1 = userRepository.findById(user1Id)
+				.orElseThrow(() -> new EntityNotFoundException("Utente non trovato"));
+		User user2 = userRepository.findById(user2Id)
+				.orElseThrow(() -> new EntityNotFoundException("Utente non trovato"));
 
-	    Friendship friendship = new Friendship();
-	    friendship.setUser1(user1);
-	    friendship.setUser2(user2);
-	    friendship.setStato(StatoAmicizia.IN_ATTESA);
-	    friendship.setDataRichiesta(LocalDateTime.now());
+		Friendship friendship = new Friendship();
+		friendship.setUser1(user1);
+		friendship.setUser2(user2);
+		friendship.setUserToBeConfirmed(user1.getId().equals(otherId)?user1:user2);
+		friendship.setStato(StatoAmicizia.IN_ATTESA);
+		friendship.setDataRichiesta(LocalDateTime.now());
 
-	    friendshipRepository.save(friendship);
+		friendshipRepository.save(friendship);
 	}
-    
-    public void accettaRichiestaAmicizia(Long userId, Long requesterId) {
-        Friendship friendship = friendshipRepository.findBetweenUsers(userId, requesterId)
-            .orElseThrow(() -> new EntityNotFoundException("Richiesta non trovata"));
 
-        if (friendship.getStato() != StatoAmicizia.IN_ATTESA) {
-            throw new IllegalStateException("La richiesta non è in attesa");
-        }
+	public void accettaRichiestaAmicizia(Long userId, Long requesterId) {
+		Friendship friendship = friendshipRepository.findBetweenUsers(userId, requesterId)
+				.orElseThrow(() -> new EntityNotFoundException("Richiesta non trovata"));
 
-        friendship.setStato(StatoAmicizia.ACCETTATA);
-        friendshipRepository.save(friendship);
-    }
-    public void rifiutaRichiestaAmicizia(Long userId, Long requesterId) {
-        Friendship friendship = friendshipRepository.findBetweenUsers(userId, requesterId)
-            .orElseThrow(() -> new EntityNotFoundException("Richiesta non trovata"));
+		if (friendship.getStato() != StatoAmicizia.IN_ATTESA) {
+			throw new IllegalStateException("La richiesta non è in attesa");
+		}
 
-        friendship.setStato(StatoAmicizia.RIFIUTATA);
-        friendshipRepository.save(friendship);
-    }
+		friendship.setStato(StatoAmicizia.ACCETTATA);
+		friendshipRepository.save(friendship);
+	}
+	
+	public Set<Friendship> getRichiesteAmiciziaInviate(Long userId) {
+		return friendshipRepository.findRequestSenByUser(userId);
+		
+	}
+	public Set<Friendship> getRichiesteAmiciziaRicevute(Long userId) {
+		return friendshipRepository.findRequestRecByUser(userId);
+		
+	}
 
-    public void rimuoviAmico(Long userId, Long friendId) {
-        Friendship friendship = friendshipRepository.findBetweenUsers(userId, friendId)
-            .orElseThrow(() -> new EntityNotFoundException("Amicizia non trovata"));
+	public void rifiutaRichiestaAmicizia(Long userId, Long requesterId) {
+		Friendship friendship = friendshipRepository.findBetweenUsers(userId, requesterId)
+				.orElseThrow(() -> new EntityNotFoundException("Richiesta non trovata"));
 
-        friendshipRepository.delete(friendship);
-    }
+		friendship.setStato(StatoAmicizia.RIFIUTATA);
+		friendshipRepository.save(friendship);
+	}
 
-    public List<User> getAmici(Long userId) {
-        return friendshipRepository.findFriendsOfUser(userId);
-    }
+	public void rimuoviAmico(Long userId, Long friendId) {
+		Friendship friendship = friendshipRepository.findBetweenUsers(userId, friendId)
+				.orElseThrow(() -> new EntityNotFoundException("Amicizia non trovata"));
+		
+		if(!friendship.getStato().equals(StatoAmicizia.ACCETTATA))
+			throw new IllegalStateException("Amicizia non trovata");
+
+		friendshipRepository.delete(friendship);
+	}
+
+	public List<User> getAmici(Long userId) {
+		return friendshipRepository.findFriendsOfUser(userId, StatoAmicizia.ACCETTATA);
+	}
 }

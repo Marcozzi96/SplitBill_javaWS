@@ -55,10 +55,10 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody AuthRequest request) {
         try {
+        	User user = userService.loadUserByEmailOrUsername(request.getEmail(), request.getUsername());
             authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
+                new UsernamePasswordAuthenticationToken(user.getUsername(), request.getPassword())
             );
-            User user = userService.loadUserByUsername(request.getUsername());
             String token = jwtUtil.generateToken(user);
             return ResponseEntity.ok(new AuthResponse(token, new UserDTO(user)));
         } catch (Exception e) {
