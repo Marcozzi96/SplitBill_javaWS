@@ -88,28 +88,55 @@ public class UserService implements UserDetailsService {
 		return false;
 	}
 
-	public void inviaRichiestaAmicizia(Long userId, Long otherId) {
+	public void inviaRichiestaAmicizia(Long userId, Long otherId) throws Exception {
 		if (userId.equals(otherId))
 			throw new IllegalArgumentException("Non puoi aggiungere te stesso");
 
 		// Ordinamento per garantire utente1 < utente2
 		Long user1Id = Math.min(userId, otherId);
 		Long user2Id = Math.max(userId, otherId);
-		
 
 		Optional<Friendship> existing = friendshipRepository.findBetweenUsers(user1Id, user2Id);
-		if (existing.isPresent())
-			throw new IllegalStateException("Amicizia già esistente o in attesa");
+		if (existing.isPresent()) { // Esiste la riga
+			if (existing.get().getUserToBeConfirmed().getId() == userId) { // l'utente che deve confermare è lo stesso
+																			// che prova a fare richiesta
+				if (existing.get().getStato().equals(StatoAmicizia.IN_ATTESA)) {
+					throw new IllegalStateException("Amicizia già in attesa di conferma");
+				} else if (existing.get().getStato().equals(StatoAmicizia.ACCETTATA)) {
+					throw new IllegalStateException("Siete già amici");
+				} else if (existing.get().getStato().equals(StatoAmicizia.RIFIUTATA)) { // Devo aggiornare la riga
+																						// esistente
+					Friendship f = existing.get();
+					User userToBeConfirmed = userRepository.findById(user2Id)
+							.orElseThrow(() -> new EntityNotFoundException("Utente non trovato"));
+					f.setUserToBeConfirmed(userToBeConfirmed); // cambiare l'utente che deve accettare
+					f.setStato(StatoAmicizia.IN_ATTESA); // Rimettere la richiesta in attesa
+					friendshipRepository.save(f);
+					return;
+				}
+			}
+			/// l'utente che fa richiesta (userId) NON è chi deve confermare
+			switch (existing.get().getStato()) {
+			case StatoAmicizia.ACCETTATA:
+				throw new IllegalStateException("Siete già amici");
+			case StatoAmicizia.IN_ATTESA:
+				throw new IllegalStateException("Amicizia già in attesa di conferma");
+			case StatoAmicizia.RIFIUTATA:
+				throw new IllegalStateException("Richiesta di amicizia rifutata. Se è tuo amico, può inviarti lui la richiesta.");
+			default:
+				throw new Exception("Errore generico");
+			}
+		}
 
+		Friendship friendship = new Friendship();
 		User user1 = userRepository.findById(user1Id)
 				.orElseThrow(() -> new EntityNotFoundException("Utente non trovato"));
 		User user2 = userRepository.findById(user2Id)
 				.orElseThrow(() -> new EntityNotFoundException("Utente non trovato"));
 
-		Friendship friendship = new Friendship();
 		friendship.setUser1(user1);
 		friendship.setUser2(user2);
-		friendship.setUserToBeConfirmed(user1.getId().equals(otherId)?user1:user2);
+		friendship.setUserToBeConfirmed(user1.getId().equals(otherId) ? user1 : user2);
 		friendship.setStato(StatoAmicizia.IN_ATTESA);
 		friendship.setDataRichiesta(LocalDateTime.now());
 
@@ -127,20 +154,22 @@ public class UserService implements UserDetailsService {
 		friendship.setStato(StatoAmicizia.ACCETTATA);
 		friendshipRepository.save(friendship);
 	}
-	
+
 	public Set<Friendship> getRichiesteAmiciziaInviate(Long userId) {
 		return friendshipRepository.findRequestSenByUser(userId);
-		
+
 	}
+
 	public Set<Friendship> getRichiesteAmiciziaRicevute(Long userId) {
 		return friendshipRepository.findRequestRecByUser(userId);
-		
+
 	}
 
 	public void rifiutaRichiestaAmicizia(Long userId, Long requesterId) {
 		Friendship friendship = friendshipRepository.findBetweenUsers(userId, requesterId)
 				.orElseThrow(() -> new EntityNotFoundException("Richiesta non trovata"));
-
+		if(!friendship.getStato().equals(StatoAmicizia.IN_ATTESA))
+			throw new IllegalStateException("Richiesta di amicizia 'IN ATTESA' non trovata");
 		friendship.setStato(StatoAmicizia.RIFIUTATA);
 		friendshipRepository.save(friendship);
 	}
@@ -148,8 +177,8 @@ public class UserService implements UserDetailsService {
 	public void rimuoviAmico(Long userId, Long friendId) {
 		Friendship friendship = friendshipRepository.findBetweenUsers(userId, friendId)
 				.orElseThrow(() -> new EntityNotFoundException("Amicizia non trovata"));
-		
-		if(!friendship.getStato().equals(StatoAmicizia.ACCETTATA))
+
+		if (!friendship.getStato().equals(StatoAmicizia.ACCETTATA))
 			throw new IllegalStateException("Amicizia non trovata");
 
 		friendshipRepository.delete(friendship);
