@@ -1,4 +1,4 @@
-package it.javaWS.javaws.security;
+package it.javaWS.javaws.config.security;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
