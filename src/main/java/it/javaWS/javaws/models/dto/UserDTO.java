@@ -1,6 +1,6 @@
-package it.javaWS.javaws.dto;
+package it.javaWS.javaws.models.dto;
 
-import it.javaWS.javaws.models.User;
+import it.javaWS.javaws.models.entities.User;
 import lombok.Data;
 
 @Data

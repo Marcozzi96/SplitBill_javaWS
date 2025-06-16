@@ -1,4 +1,4 @@
-package it.javaWS.javaws.dto;
+package it.javaWS.javaws.models.dto;
 
 
 public class AuthResponse {

@@ -1,7 +1,8 @@
 package it.javaWS.javaws.services;
 
 import org.springframework.stereotype.Service;
-import it.javaWS.javaws.models.Transaction;
+
+import it.javaWS.javaws.models.entities.Transaction;
 import it.javaWS.javaws.repositories.TransactionRepository;
 
 @Service

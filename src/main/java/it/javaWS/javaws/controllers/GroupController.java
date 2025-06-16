@@ -1,8 +1,8 @@
 package it.javaWS.javaws.controllers;
 
-import it.javaWS.javaws.dto.GroupDTO;
-import it.javaWS.javaws.models.Group;
-import it.javaWS.javaws.models.User;
+import it.javaWS.javaws.models.dto.GroupDTO;
+import it.javaWS.javaws.models.entities.Group;
+import it.javaWS.javaws.models.entities.User;
 import it.javaWS.javaws.repositories.UserGroupRepository;
 import it.javaWS.javaws.services.GroupService;
 

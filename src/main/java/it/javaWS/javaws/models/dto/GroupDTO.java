@@ -1,12 +1,12 @@
-package it.javaWS.javaws.dto;
+package it.javaWS.javaws.models.dto;
 
 import java.time.LocalDate;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import it.javaWS.javaws.models.Bill;
-import it.javaWS.javaws.models.Group;
-import it.javaWS.javaws.models.User;
+import it.javaWS.javaws.models.entities.Bill;
+import it.javaWS.javaws.models.entities.Group;
+import it.javaWS.javaws.models.entities.User;
 import lombok.Data;
 
 @Data

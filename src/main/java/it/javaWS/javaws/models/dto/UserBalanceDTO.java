@@ -1,4 +1,4 @@
-package it.javaWS.javaws.dto;
+package it.javaWS.javaws.models.dto;
 
 import java.math.BigDecimal;
 

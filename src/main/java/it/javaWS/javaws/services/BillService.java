@@ -1,6 +1,10 @@
 package it.javaWS.javaws.services;
 
 import it.javaWS.javaws.models.*;
+import it.javaWS.javaws.models.entities.Bill;
+import it.javaWS.javaws.models.entities.Group;
+import it.javaWS.javaws.models.entities.Transaction;
+import it.javaWS.javaws.models.entities.User;
 import it.javaWS.javaws.repositories.*;
 
 import org.springframework.stereotype.Service;

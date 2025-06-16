@@ -8,7 +8,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import it.javaWS.javaws.dto.AuthRequest;
+import it.javaWS.javaws.models.dto.AuthRequest;
 import jakarta.servlet.http.HttpServletRequest;
 
 public class UserDetailsUtil {

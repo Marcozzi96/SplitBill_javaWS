@@ -1,10 +1,10 @@
 package it.javaWS.javaws.controllers;
 
-import it.javaWS.javaws.dto.AuthResponse;
-import it.javaWS.javaws.dto.FriendshipReqRecDTO;
-import it.javaWS.javaws.dto.FriendshipReqSenDTO;
-import it.javaWS.javaws.dto.UserDTO;
-import it.javaWS.javaws.models.User;
+import it.javaWS.javaws.models.dto.AuthResponse;
+import it.javaWS.javaws.models.dto.FriendshipReqRecDTO;
+import it.javaWS.javaws.models.dto.FriendshipReqSenDTO;
+import it.javaWS.javaws.models.dto.UserDTO;
+import it.javaWS.javaws.models.entities.User;
 import it.javaWS.javaws.services.UserService;
 import it.javaWS.javaws.utils.JwtUtil;
 import jakarta.persistence.EntityNotFoundException;

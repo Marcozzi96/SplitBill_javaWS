@@ -10,8 +10,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import it.javaWS.javaws.enums.StatoAmicizia;
-import it.javaWS.javaws.models.Friendship;
-import it.javaWS.javaws.models.User;
+import it.javaWS.javaws.models.entities.Friendship;
+import it.javaWS.javaws.models.entities.User;
 
 @Repository
 public interface FriendshipRepository extends JpaRepository<Friendship, Long> {

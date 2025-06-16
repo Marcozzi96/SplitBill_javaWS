@@ -1,9 +1,9 @@
 package it.javaWS.javaws.services;
 
-import it.javaWS.javaws.models.Group;
-import it.javaWS.javaws.models.User;
-import it.javaWS.javaws.models.UserGroup;
-import it.javaWS.javaws.models.UserGroupId;
+import it.javaWS.javaws.models.entities.Group;
+import it.javaWS.javaws.models.entities.User;
+import it.javaWS.javaws.models.entities.UserGroup;
+import it.javaWS.javaws.models.entities.UserGroupId;
 import it.javaWS.javaws.repositories.GroupRepository;
 import it.javaWS.javaws.repositories.UserGroupRepository;
 import it.javaWS.javaws.repositories.UserRepository;

@@ -1,9 +1,9 @@
 package it.javaWS.javaws.services;
 
-import it.javaWS.javaws.dto.UserBalanceDTO;
-import it.javaWS.javaws.models.Bill;
-import it.javaWS.javaws.models.Transaction;
-import it.javaWS.javaws.models.User;
+import it.javaWS.javaws.models.dto.UserBalanceDTO;
+import it.javaWS.javaws.models.entities.Bill;
+import it.javaWS.javaws.models.entities.Transaction;
+import it.javaWS.javaws.models.entities.User;
 import it.javaWS.javaws.repositories.BillRepository;
 import it.javaWS.javaws.repositories.TransactionRepository;
 import it.javaWS.javaws.repositories.UserRepository;

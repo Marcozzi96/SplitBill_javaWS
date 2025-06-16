@@ -6,8 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import it.javaWS.javaws.models.Group;
-import it.javaWS.javaws.models.User;
+import it.javaWS.javaws.models.entities.Group;
+import it.javaWS.javaws.models.entities.User;
 @Repository
 public interface GroupRepository extends JpaRepository<Group, Long> {
 
