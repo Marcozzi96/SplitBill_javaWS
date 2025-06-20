@@ -1,9 +1,10 @@
 package it.javaWS.javaws.services;
 
-import it.javaWS.javaws.models.Group;
-import it.javaWS.javaws.models.User;
-import it.javaWS.javaws.models.UserGroup;
-import it.javaWS.javaws.models.UserGroupId;
+import it.javaWS.javaws.models.entities.Group;
+import it.javaWS.javaws.models.entities.User;
+import it.javaWS.javaws.models.entities.UserGroup;
+import it.javaWS.javaws.models.entities.UserGroupId;
+import it.javaWS.javaws.repositories.FriendshipRepository;
 import it.javaWS.javaws.repositories.GroupRepository;
 import it.javaWS.javaws.repositories.UserGroupRepository;
 import it.javaWS.javaws.repositories.UserRepository;
@@ -23,9 +24,10 @@ public class GroupService {
 	private final GroupRepository groupRepository;
 	private final UserRepository userRepository;
 	private final UserGroupRepository userGroupRepository;
+	
 
 	public GroupService(GroupRepository groupRepository, UserRepository userRepository,
-			UserGroupRepository userGroupRepository) {
+			UserGroupRepository userGroupRepository, FriendshipService friendshipService) {
 		this.groupRepository = groupRepository;
 		this.userRepository = userRepository;
 		this.userGroupRepository = userGroupRepository;
@@ -36,10 +38,8 @@ public class GroupService {
 
 		// 1. Recupera gli utenti
 		Set<User> users = new HashSet<>(userRepository.findAllById(userIds));
-
-		if (users.size() != userIds.size()) {
-			throw new IllegalArgumentException("Alcuni utenti non esistono");
-		}
+		
+		
 
 		// 2. Crea il gruppo
 		Group group = new Group();

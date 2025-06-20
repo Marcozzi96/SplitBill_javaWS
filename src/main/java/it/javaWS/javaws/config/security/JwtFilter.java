@@ -1,4 +1,4 @@
-package it.javaWS.javaws.security;
+package it.javaWS.javaws.config.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

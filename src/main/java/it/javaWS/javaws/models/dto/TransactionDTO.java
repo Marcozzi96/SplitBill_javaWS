@@ -1,8 +1,8 @@
-package it.javaWS.javaws.dto;
+package it.javaWS.javaws.models.dto;
 
 import java.math.BigDecimal;
 
-import it.javaWS.javaws.models.Transaction;
+import it.javaWS.javaws.models.entities.Transaction;
 import lombok.Data;
 
 @Data

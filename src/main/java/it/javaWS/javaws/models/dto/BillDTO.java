@@ -1,4 +1,4 @@
-package it.javaWS.javaws.dto;
+package it.javaWS.javaws.models.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -6,7 +6,7 @@ import java.util.Set;
 
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
-import it.javaWS.javaws.models.Bill;
+import it.javaWS.javaws.models.entities.Bill;
 import lombok.Data;
 
 @JsonPropertyOrder({

@@ -5,7 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import it.javaWS.javaws.models.Bill;
+import it.javaWS.javaws.models.entities.Bill;
 
 import java.util.List;
 

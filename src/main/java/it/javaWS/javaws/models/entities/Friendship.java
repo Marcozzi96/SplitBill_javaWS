@@ -1,4 +1,4 @@
-package it.javaWS.javaws.models;
+package it.javaWS.javaws.models.entities;
 
 import java.time.LocalDateTime;
 

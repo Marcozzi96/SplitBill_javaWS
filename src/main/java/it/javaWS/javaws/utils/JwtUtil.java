@@ -1,7 +1,7 @@
 package it.javaWS.javaws.utils;
 
 import io.jsonwebtoken.*;
-import it.javaWS.javaws.models.User;
+import it.javaWS.javaws.models.entities.User;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;

@@ -10,8 +10,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import it.javaWS.javaws.enums.StatoAmicizia;
-import it.javaWS.javaws.models.Friendship;
-import it.javaWS.javaws.models.User;
+import it.javaWS.javaws.models.entities.Friendship;
+import it.javaWS.javaws.models.entities.User;
 
 @Repository
 public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
@@ -22,6 +22,13 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
 			       OR (f.user2.id = :userId AND f.user1.id = :otherId)
 			""")
 	Optional<Friendship> findBetweenUsers(@Param("userId") Long userId, @Param("otherId") Long otherId);
+
+	@Query("""
+			    SELECT COUNT(f) FROM Friendship f
+			    WHERE (f.user1.id = :userId AND f.user2.id IN :otherIds)
+			       OR (f.user2.id = :userId AND f.user1.id IN :otherIds)
+			""")
+	long countFriendshipsWithUser(@Param("userId") Long userId, @Param("otherIds") Set<Long> otherIds);
 
 	@Query("""
 			    SELECT f.user2

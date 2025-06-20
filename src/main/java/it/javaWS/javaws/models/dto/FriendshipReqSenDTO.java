@@ -1,9 +1,9 @@
-package it.javaWS.javaws.dto;
+package it.javaWS.javaws.models.dto;
 
 import java.time.LocalDateTime;
 
 import it.javaWS.javaws.enums.StatoAmicizia;
-import it.javaWS.javaws.models.Friendship;
+import it.javaWS.javaws.models.entities.Friendship;
 import lombok.Data;
 
 @Data
