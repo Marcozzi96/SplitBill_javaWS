@@ -4,7 +4,6 @@ import it.javaWS.javaws.models.entities.Group;
 import it.javaWS.javaws.models.entities.User;
 import it.javaWS.javaws.models.entities.UserGroup;
 import it.javaWS.javaws.models.entities.UserGroupId;
-import it.javaWS.javaws.repositories.FriendshipRepository;
 import it.javaWS.javaws.repositories.GroupRepository;
 import it.javaWS.javaws.repositories.UserGroupRepository;
 import it.javaWS.javaws.repositories.UserRepository;
