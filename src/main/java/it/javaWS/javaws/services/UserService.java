@@ -3,7 +3,6 @@ package it.javaWS.javaws.services;
 import it.javaWS.javaws.enums.StatoAmicizia;
 import it.javaWS.javaws.models.entities.Friendship;
 import it.javaWS.javaws.models.entities.User;
-import it.javaWS.javaws.repositories.FriendshipRepository;
 import it.javaWS.javaws.repositories.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 
