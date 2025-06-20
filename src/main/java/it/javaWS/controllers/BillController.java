@@ -6,7 +6,6 @@ import it.javaWS.models.entities.Bill;
 import it.javaWS.models.entities.Group;
 import it.javaWS.models.entities.User;
 import it.javaWS.models.entities.UserGroup;
-import it.javaWS.repositories.UserGroupRepository;
 import it.javaWS.services.BillService;
 import it.javaWS.services.GroupService;
 import it.javaWS.services.UserService;
@@ -36,15 +35,13 @@ public class BillController {
 	private final BillService billService;
 	private final UserService userService;
 	private final GroupService groupService;
-	private final UserGroupRepository userGroupRepository;
 	private final JwtUtil jwtUtil;
 
 	public BillController(BillService billService, UserService userService, GroupService groupService,
-			JwtUtil jwtUtil, UserGroupRepository userGroupRepository) {
+			JwtUtil jwtUtil) {
 		this.billService = billService;
 		this.userService = userService;
 		this.groupService = groupService;
-		this.userGroupRepository = userGroupRepository;
 		this.jwtUtil = jwtUtil;
 	}
 
@@ -62,8 +59,6 @@ public class BillController {
 
 		Set<UserGroup> userGroups = groupService.getUserGroup(groupId, usersDebit.keySet());
 
-		// Set<UserGroup> userGroups =
-		// userGroupRepository.findByGroup_IdAndUser_IdIn(groupId, usersDebit.keySet());
 		if (userGroups.size() != usersDebit.size()) {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST)
 					.body(Map.of("error", "Non tutti i debitori fanno parte del gruppo")); // NON TUTTI I CLIENTS FANNO
@@ -105,7 +100,7 @@ public class BillController {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Token non valido"));
 		}
 		
-		if(!userGroupRepository.existsByGroupIdAndUserId(groupId, user.getId())) {
+		if(!groupService.existsByGroupIdAndUserId(groupId, user.getId())) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
 					.body(Map.of("error", "L'utente non fa parte del gruppo richiesto"));
 		}

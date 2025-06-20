@@ -3,7 +3,6 @@ package it.javaWS.controllers;
 import it.javaWS.models.dto.GroupDTO;
 import it.javaWS.models.entities.Group;
 import it.javaWS.models.entities.User;
-import it.javaWS.repositories.UserGroupRepository;
 import it.javaWS.services.FriendshipService;
 import it.javaWS.services.GroupService;
 
@@ -30,12 +29,10 @@ import java.util.Set;
 public class GroupController {
 
 	private final GroupService groupService;
-	private final UserGroupRepository userGroupRepository;
 	private final FriendshipService friendshipService;
 
-	public GroupController(GroupService groupService, UserGroupRepository userGroupRepository, FriendshipService friendshipService) {
+	public GroupController(GroupService groupService, FriendshipService friendshipService) {
 		this.groupService = groupService;
-		this.userGroupRepository = userGroupRepository;
 		this.friendshipService = friendshipService;
 	}
 
@@ -79,7 +76,7 @@ public class GroupController {
 		Long userId = userDetails.getId();
 
 		Group group = groupService.getGroup(groupId);
-		if (group == null || !userGroupRepository.existsByGroupIdAndUserId(group.getId(), userId)) {
+		if (group == null || !groupService.existsByGroupIdAndUserId(group.getId(), userId)) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
 					.body(Map.of("error", "L'utente non fa parte del gruppo richiesto"));
 		}
@@ -121,7 +118,7 @@ public class GroupController {
 		userIds.add(userId);
 
 		Group group = groupService.getGroup(groupId);
-		if (group == null || !userGroupRepository.existsByGroupIdAndUserId(group.getId(), userId)) {
+		if (group == null || !groupService.existsByGroupIdAndUserId(group.getId(), userId)) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
 					.body(Map.of("error", "L'utente non fa parte del gruppo richiesto"));
 		}
@@ -148,7 +145,7 @@ public class GroupController {
 		Long userId = userDetails.getId();
 
 		Group group = groupService.getGroup(groupId);
-		if (group == null || !userGroupRepository.existsByGroupIdAndUserId(group.getId(), userId)) {
+		if (group == null || !groupService.existsByGroupIdAndUserId(group.getId(), userId)) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
 					.body(Map.of("error", "L'utente non fa parte del gruppo richiesto"));
 		}

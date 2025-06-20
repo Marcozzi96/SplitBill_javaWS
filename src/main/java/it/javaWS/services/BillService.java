@@ -20,8 +20,7 @@ public class BillService {
     private final BillRepository billRepository;//
     private final TransactionRepository transactionRepository;
 
-    public BillService(BillRepository billRepository,
-                       GroupRepository groupRepository, TransactionRepository transactionRepository) {
+    public BillService(BillRepository billRepository, TransactionRepository transactionRepository) {
         this.billRepository = billRepository;
         this.transactionRepository = transactionRepository;
     }

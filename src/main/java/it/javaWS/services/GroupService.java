@@ -163,5 +163,41 @@ public class GroupService {
 		return userGroupRepository.findByGroup_IdAndUser_IdIn(groupId, userIds);
 	}
 	
+    public Set<UserGroup> getByUser(User user) {
+        return userGroupRepository.findByUser(user);
+    }
+
+    public Set<UserGroup> getByGroup(Group group) {
+        return userGroupRepository.findByGroup(group);
+    }
+
+    @Transactional
+    public void deleteByGroupIdAndUserIds(Long groupId, Set<Long> userIds) {
+        userGroupRepository.deleteByGroup_IdAndUser_IdIn(groupId, userIds);
+    }
+
+    public Set<UserGroup> getByGroupIdAndUserIds(Long groupId, Set<Long> userIds) {
+        return userGroupRepository.findByGroup_IdAndUser_IdIn(groupId, userIds);
+    }
+
+    public boolean existsByGroupIdAndUserId(Long groupId, Long userId) {
+        return userGroupRepository.existsByGroupIdAndUserId(groupId, userId);
+    }
+
+    public List<UserGroup> getByGroupId(Long groupId) {
+        return userGroupRepository.findByGroupId(groupId);
+    }
+
+    public Optional<UserGroup> getById(UserGroupId id) {
+        return userGroupRepository.findById(id);
+    }
+
+    public UserGroup save(UserGroup userGroup) {
+        return userGroupRepository.save(userGroup);
+    }
+
+    public void delete(UserGroup userGroup) {
+        userGroupRepository.delete(userGroup);
+    }
 
 }
