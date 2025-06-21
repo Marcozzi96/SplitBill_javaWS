@@ -40,7 +40,8 @@ public class FriendshipService {
     }
 
     public Set<Friendship> getSentFriendRequests(Long userId) {
-        return friendshipRepository.findRequestSenByUser(userId);
+    	Set<Friendship> f = friendshipRepository.findRequestSenByUser(userId);
+        return f;
     }
     public Friendship save(Friendship f) {
     	return friendshipRepository.save(f);

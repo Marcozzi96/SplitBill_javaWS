@@ -106,7 +106,7 @@ public class UserService implements UserDetailsService {
 				} else if (existing.get().getStato().equals(StatoAmicizia.RIFIUTATA)) { // Devo aggiornare la riga
 																						// esistente
 					Friendship f = existing.get();
-					User userToBeConfirmed = userRepository.findById(user2Id)
+					User userToBeConfirmed = userRepository.findById(f.getUserToBeConfirmed().getId()==userId?otherId:userId)
 							.orElseThrow(() -> new EntityNotFoundException("Utente non trovato"));
 					f.setUserToBeConfirmed(userToBeConfirmed); // cambiare l'utente che deve accettare
 					f.setStato(StatoAmicizia.IN_ATTESA); // Rimettere la richiesta in attesa
@@ -147,7 +147,9 @@ public class UserService implements UserDetailsService {
 	public void accettaRichiestaAmicizia(Long userId, Long requesterId) {
 		Friendship friendship = friendshipService.findFriendshipBetweenUsers(userId, requesterId)
 				.orElseThrow(() -> new EntityNotFoundException("Richiesta non trovata"));
-
+		if(friendship.getUserToBeConfirmed().getId()!=userId) {
+			throw new IllegalStateException("La richiesta non può essere accettata da chi la invia");
+		}
 		if (friendship.getStato() != StatoAmicizia.IN_ATTESA) {
 			throw new IllegalStateException("La richiesta non è in attesa");
 		}
@@ -171,8 +173,14 @@ public class UserService implements UserDetailsService {
 				.orElseThrow(() -> new EntityNotFoundException("Richiesta non trovata"));
 		if(!friendship.getStato().equals(StatoAmicizia.IN_ATTESA))
 			throw new IllegalStateException("Richiesta di amicizia 'IN ATTESA' non trovata");
-		friendship.setStato(StatoAmicizia.RIFIUTATA);
-		friendshipService.save(friendship);
+		if(friendship.getUserToBeConfirmed().getId() != userId) {
+			friendshipService.delete(friendship); //Se vuoi annullare una tua richiesta, questa viene eliminata
+		}else {
+			friendship.setStato(StatoAmicizia.RIFIUTATA); //se vuoi annullare la richiesta fatta a te, questa viene messa in stato rifiutato
+			friendshipService.save(friendship); //per impedire che possa esserti mandata di nuovo dalla stessa persona
+			
+		}
+		
 	}
 
 	public void rimuoviAmico(Long userId, Long friendId) {
