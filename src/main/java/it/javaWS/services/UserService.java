@@ -1,20 +1,20 @@
 package it.javaWS.services;
 
-import it.javaWS.enums.StatoAmicizia;
-import it.javaWS.models.entities.Friendship;
-import it.javaWS.models.entities.User;
-import it.javaWS.repositories.UserRepository;
-import jakarta.persistence.EntityNotFoundException;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import it.javaWS.enums.StatoAmicizia;
+import it.javaWS.models.entities.Friendship;
+import it.javaWS.models.entities.User;
+import it.javaWS.repositories.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
 
 @Service
 public class UserService implements UserDetailsService {
@@ -87,7 +87,7 @@ public class UserService implements UserDetailsService {
 		return false;
 	}
 
-	public void inviaRichiestaAmicizia(Long userId, Long otherId) throws Exception {
+	public void inviaRichiestaAmicizia(Long userId, Long otherId, String message) throws Exception {
 		if (userId.equals(otherId))
 			throw new IllegalArgumentException("Non puoi aggiungere te stesso");
 
@@ -110,6 +110,7 @@ public class UserService implements UserDetailsService {
 							.orElseThrow(() -> new EntityNotFoundException("Utente non trovato"));
 					f.setUserToBeConfirmed(userToBeConfirmed); // cambiare l'utente che deve accettare
 					f.setStato(StatoAmicizia.IN_ATTESA); // Rimettere la richiesta in attesa
+					f.setMessaggio(message);
 					friendshipService.save(f);
 					return;
 				}
@@ -138,6 +139,7 @@ public class UserService implements UserDetailsService {
 		friendship.setUserToBeConfirmed(user1.getId().equals(otherId) ? user1 : user2);
 		friendship.setStato(StatoAmicizia.IN_ATTESA);
 		friendship.setDataRichiesta(LocalDateTime.now());
+		friendship.setMessaggio(message);
 
 		friendshipService.save(friendship);
 	}

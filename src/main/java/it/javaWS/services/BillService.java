@@ -1,18 +1,19 @@
 package it.javaWS.services;
 
-import it.javaWS.models.entities.Bill;
-import it.javaWS.models.entities.Group;
-import it.javaWS.models.entities.Transaction;
-import it.javaWS.models.entities.User;
-import it.javaWS.repositories.*;
-
-import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+
+import org.springframework.stereotype.Service;
+
+import it.javaWS.models.entities.Bill;
+import it.javaWS.models.entities.Group;
+import it.javaWS.models.entities.Transaction;
+import it.javaWS.models.entities.User;
+import it.javaWS.repositories.BillRepository;
+import it.javaWS.repositories.TransactionRepository;
 
 @Service
 public class BillService {

@@ -1,5 +1,15 @@
 package it.javaWS.services;
 
+import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import it.javaWS.models.entities.Group;
 import it.javaWS.models.entities.User;
 import it.javaWS.models.entities.UserGroup;
@@ -7,16 +17,6 @@ import it.javaWS.models.entities.UserGroupId;
 import it.javaWS.repositories.GroupRepository;
 import it.javaWS.repositories.UserGroupRepository;
 import it.javaWS.repositories.UserRepository;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDate;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 public class GroupService {

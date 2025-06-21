@@ -1,11 +1,11 @@
 package it.javaWS.models.entities;
 
+import java.io.Serializable;
+import java.util.Objects;
+
 import jakarta.persistence.Embeddable;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.io.Serializable;
-import java.util.Objects;
 
 @Data
 @NoArgsConstructor
