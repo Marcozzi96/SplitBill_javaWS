@@ -1,5 +1,10 @@
 package it.javaWS.services;
 
+import java.math.BigDecimal;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+
 import it.javaWS.models.dto.UserBalanceDTO;
 import it.javaWS.models.entities.Bill;
 import it.javaWS.models.entities.Transaction;
@@ -7,11 +12,6 @@ import it.javaWS.models.entities.User;
 import it.javaWS.repositories.BillRepository;
 import it.javaWS.repositories.TransactionRepository;
 import it.javaWS.repositories.UserRepository;
-
-import org.springframework.stereotype.Service;
-
-import java.math.BigDecimal;
-import java.util.List;
 
 @Service
 public class BalanceService {

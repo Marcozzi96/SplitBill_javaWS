@@ -1,27 +1,32 @@
 package it.javaWS.controllers;
 
-import it.javaWS.models.dto.GroupDTO;
-import it.javaWS.models.entities.Group;
-import it.javaWS.models.entities.User;
-import it.javaWS.repositories.UserGroupRepository;
-import it.javaWS.services.FriendshipService;
-import it.javaWS.services.GroupService;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import it.javaWS.models.dto.GroupDTO;
+import it.javaWS.models.entities.Group;
+import it.javaWS.models.entities.User;
+import it.javaWS.services.FriendshipService;
+import it.javaWS.services.GroupService;
 
 @RestController
 @RequestMapping("/groups")
@@ -30,12 +35,10 @@ import java.util.Set;
 public class GroupController {
 
 	private final GroupService groupService;
-	private final UserGroupRepository userGroupRepository;
 	private final FriendshipService friendshipService;
 
-	public GroupController(GroupService groupService, UserGroupRepository userGroupRepository, FriendshipService friendshipService) {
+	public GroupController(GroupService groupService, FriendshipService friendshipService) {
 		this.groupService = groupService;
-		this.userGroupRepository = userGroupRepository;
 		this.friendshipService = friendshipService;
 	}
 
@@ -79,7 +82,7 @@ public class GroupController {
 		Long userId = userDetails.getId();
 
 		Group group = groupService.getGroup(groupId);
-		if (group == null || !userGroupRepository.existsByGroupIdAndUserId(group.getId(), userId)) {
+		if (group == null || !groupService.existsByGroupIdAndUserId(group.getId(), userId)) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
 					.body(Map.of("error", "L'utente non fa parte del gruppo richiesto"));
 		}
@@ -121,7 +124,7 @@ public class GroupController {
 		userIds.add(userId);
 
 		Group group = groupService.getGroup(groupId);
-		if (group == null || !userGroupRepository.existsByGroupIdAndUserId(group.getId(), userId)) {
+		if (group == null || !groupService.existsByGroupIdAndUserId(group.getId(), userId)) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
 					.body(Map.of("error", "L'utente non fa parte del gruppo richiesto"));
 		}
@@ -148,7 +151,7 @@ public class GroupController {
 		Long userId = userDetails.getId();
 
 		Group group = groupService.getGroup(groupId);
-		if (group == null || !userGroupRepository.existsByGroupIdAndUserId(group.getId(), userId)) {
+		if (group == null || !groupService.existsByGroupIdAndUserId(group.getId(), userId)) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
 					.body(Map.of("error", "L'utente non fa parte del gruppo richiesto"));
 		}

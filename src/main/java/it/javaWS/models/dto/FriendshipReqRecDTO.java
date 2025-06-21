@@ -12,6 +12,7 @@ public class FriendshipReqRecDTO { //requests received
 	private UserDTO applicant;
 	private StatoAmicizia stato;
 	private LocalDateTime dataRichiesta;
+	private String messaggio;
 	
 	public FriendshipReqRecDTO(Friendship friendship) {
 		this.friendshipId = friendship.getId();
@@ -20,5 +21,6 @@ public class FriendshipReqRecDTO { //requests received
 				friendship.getUser2():friendship.getUser1());
 		this.stato = friendship.getStato();
 		this.dataRichiesta = friendship.getDataRichiesta();
+		this.messaggio = friendship.getMessaggio();
 	}
 }

@@ -1,16 +1,16 @@
 package it.javaWS.services;
 
-import it.javaWS.enums.StatoAmicizia;
-import it.javaWS.models.entities.Friendship;
-import it.javaWS.models.entities.User;
-import it.javaWS.repositories.FriendshipRepository;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import it.javaWS.enums.StatoAmicizia;
+import it.javaWS.models.entities.Friendship;
+import it.javaWS.models.entities.User;
+import it.javaWS.repositories.FriendshipRepository;
 
 @Service
 public class FriendshipService {

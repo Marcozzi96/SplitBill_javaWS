@@ -1,24 +1,5 @@
 package it.javaWS.controllers;
 
-import it.javaWS.models.dto.BillDTO;
-import it.javaWS.models.dto.TransactionDTO;
-import it.javaWS.models.entities.Bill;
-import it.javaWS.models.entities.Group;
-import it.javaWS.models.entities.User;
-import it.javaWS.models.entities.UserGroup;
-import it.javaWS.repositories.UserGroupRepository;
-import it.javaWS.services.BillService;
-import it.javaWS.services.GroupService;
-import it.javaWS.services.UserService;
-import it.javaWS.utils.JwtUtil;
-
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +7,31 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import it.javaWS.models.dto.BillDTO;
+import it.javaWS.models.dto.TransactionDTO;
+import it.javaWS.models.entities.Bill;
+import it.javaWS.models.entities.Group;
+import it.javaWS.models.entities.User;
+import it.javaWS.models.entities.UserGroup;
+import it.javaWS.services.BillService;
+import it.javaWS.services.GroupService;
+import it.javaWS.services.UserService;
+import it.javaWS.utils.JwtUtil;
 
 @RestController
 @RequestMapping("/bills")
@@ -36,15 +42,13 @@ public class BillController {
 	private final BillService billService;
 	private final UserService userService;
 	private final GroupService groupService;
-	private final UserGroupRepository userGroupRepository;
 	private final JwtUtil jwtUtil;
 
 	public BillController(BillService billService, UserService userService, GroupService groupService,
-			JwtUtil jwtUtil, UserGroupRepository userGroupRepository) {
+			JwtUtil jwtUtil) {
 		this.billService = billService;
 		this.userService = userService;
 		this.groupService = groupService;
-		this.userGroupRepository = userGroupRepository;
 		this.jwtUtil = jwtUtil;
 	}
 
@@ -62,8 +66,6 @@ public class BillController {
 
 		Set<UserGroup> userGroups = groupService.getUserGroup(groupId, usersDebit.keySet());
 
-		// Set<UserGroup> userGroups =
-		// userGroupRepository.findByGroup_IdAndUser_IdIn(groupId, usersDebit.keySet());
 		if (userGroups.size() != usersDebit.size()) {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST)
 					.body(Map.of("error", "Non tutti i debitori fanno parte del gruppo")); // NON TUTTI I CLIENTS FANNO
@@ -105,7 +107,7 @@ public class BillController {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Token non valido"));
 		}
 		
-		if(!userGroupRepository.existsByGroupIdAndUserId(groupId, user.getId())) {
+		if(!groupService.existsByGroupIdAndUserId(groupId, user.getId())) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
 					.body(Map.of("error", "L'utente non fa parte del gruppo richiesto"));
 		}

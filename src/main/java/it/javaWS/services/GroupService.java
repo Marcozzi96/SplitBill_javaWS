@@ -1,5 +1,15 @@
 package it.javaWS.services;
 
+import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import it.javaWS.models.entities.Group;
 import it.javaWS.models.entities.User;
 import it.javaWS.models.entities.UserGroup;
@@ -7,16 +17,6 @@ import it.javaWS.models.entities.UserGroupId;
 import it.javaWS.repositories.GroupRepository;
 import it.javaWS.repositories.UserGroupRepository;
 import it.javaWS.repositories.UserRepository;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDate;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 public class GroupService {
@@ -163,5 +163,41 @@ public class GroupService {
 		return userGroupRepository.findByGroup_IdAndUser_IdIn(groupId, userIds);
 	}
 	
+    public Set<UserGroup> getByUser(User user) {
+        return userGroupRepository.findByUser(user);
+    }
+
+    public Set<UserGroup> getByGroup(Group group) {
+        return userGroupRepository.findByGroup(group);
+    }
+
+    @Transactional
+    public void deleteByGroupIdAndUserIds(Long groupId, Set<Long> userIds) {
+        userGroupRepository.deleteByGroup_IdAndUser_IdIn(groupId, userIds);
+    }
+
+    public Set<UserGroup> getByGroupIdAndUserIds(Long groupId, Set<Long> userIds) {
+        return userGroupRepository.findByGroup_IdAndUser_IdIn(groupId, userIds);
+    }
+
+    public boolean existsByGroupIdAndUserId(Long groupId, Long userId) {
+        return userGroupRepository.existsByGroupIdAndUserId(groupId, userId);
+    }
+
+    public List<UserGroup> getByGroupId(Long groupId) {
+        return userGroupRepository.findByGroupId(groupId);
+    }
+
+    public Optional<UserGroup> getById(UserGroupId id) {
+        return userGroupRepository.findById(id);
+    }
+
+    public UserGroup save(UserGroup userGroup) {
+        return userGroupRepository.save(userGroup);
+    }
+
+    public void delete(UserGroup userGroup) {
+        userGroupRepository.delete(userGroup);
+    }
 
 }

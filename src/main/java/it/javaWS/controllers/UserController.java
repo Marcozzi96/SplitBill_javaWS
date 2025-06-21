@@ -1,14 +1,5 @@
 package it.javaWS.controllers;
 
-import it.javaWS.models.dto.AuthResponse;
-import it.javaWS.models.dto.FriendshipReqRecDTO;
-import it.javaWS.models.dto.FriendshipReqSenDTO;
-import it.javaWS.models.dto.UserDTO;
-import it.javaWS.models.entities.User;
-import it.javaWS.services.UserService;
-import it.javaWS.utils.JwtUtil;
-import jakarta.persistence.EntityNotFoundException;
-
 import java.time.LocalDate;
 import java.util.Map;
 
@@ -18,12 +9,26 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import it.javaWS.models.dto.AuthResponse;
+import it.javaWS.models.dto.FriendshipReqRecDTO;
+import it.javaWS.models.dto.FriendshipReqSenDTO;
+import it.javaWS.models.dto.UserDTO;
+import it.javaWS.models.entities.User;
+import it.javaWS.services.UserService;
+import it.javaWS.utils.JwtUtil;
+import jakarta.persistence.EntityNotFoundException;
 
 @RestController
 @RequestMapping("/user")
@@ -110,13 +115,13 @@ public class UserController {
 		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
 	})
 	@GetMapping("/sendFriendshipRequest")
-	public ResponseEntity<?> sendFriendshipRequest(@RequestParam Long userId) {
+	public ResponseEntity<?> sendFriendshipRequest(@RequestParam Long userId, @RequestBody String message) {
 		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 		if (auth == null || !(auth.getPrincipal() instanceof User userDetails)) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Utente non autenticato"));
 		}
 		try {
-			userService.inviaRichiestaAmicizia(userDetails.getId(), userId);
+			userService.inviaRichiestaAmicizia(userDetails.getId(), userId, message);
 			return ResponseEntity.ok("Richiesta inviata");
 		} catch (IllegalStateException e) {
 			return ResponseEntity.status(HttpStatus.ALREADY_REPORTED).body(Map.of("error", e.getMessage()));
