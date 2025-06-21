@@ -184,7 +184,7 @@ public class UserController {
 		}
 	}
 
-	@Operation(summary = "Rifiuta una richiesta di amicizia")
+	@Operation(summary = "Rifiuta una richiesta di amicizia. Può essere usata anche per annullare una richiesta inviata da te")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "Richiesta rifiutata"),
 		@ApiResponse(responseCode = "400", description = "Errore durante il rifiuto"),
