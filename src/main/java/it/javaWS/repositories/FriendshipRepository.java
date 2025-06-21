@@ -51,11 +51,14 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
 	Set<Friendship> findRequestRecByUser(@Param("userId") Long userId);
 
 	@Query("""
-			    SELECT f FROM Friendship f
-			    WHERE (f.user1.id = :userId AND f.user1.id <> f.userToBeConfirmed.id)
-			       OR (f.user2.id = :userId AND f.user2.id <> f.userToBeConfirmed.id)
-			       AND f.stato = 'IN_ATTESA'
-			""")
-	Set<Friendship> findRequestSenByUser(@Param("userId") Long userId);
+		    SELECT f FROM Friendship f
+		    WHERE (
+		        (f.user1.id = :userId AND f.user1.id <> f.userToBeConfirmed.id)
+		        OR (f.user2.id = :userId AND f.user2.id <> f.userToBeConfirmed.id)
+		    )
+		    AND f.stato = 'IN_ATTESA'
+		""")
+		Set<Friendship> findRequestSenByUser(@Param("userId") Long userId);
+
 
 }
