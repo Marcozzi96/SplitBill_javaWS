@@ -123,7 +123,7 @@ public class UserController {
 		try {
 			Long userId = userService.loadUserByEmailOrUsername(name, name).getId();
 			userService.inviaRichiestaAmicizia(userDetails.getId(), userId, message);
-			return ResponseEntity.ok("Richiesta inviata");
+			return ResponseEntity.status(HttpStatus.OK).body(Map.of("message", "Richiesta inviata"));
 		} catch (IllegalStateException e) {
 			return ResponseEntity.status(HttpStatus.ALREADY_REPORTED).body(Map.of("error", e.getMessage()));
 		} catch (EntityNotFoundException | IllegalArgumentException e) {
