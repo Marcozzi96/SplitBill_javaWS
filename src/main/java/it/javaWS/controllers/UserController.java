@@ -115,12 +115,13 @@ public class UserController {
 		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
 	})
 	@GetMapping("/sendFriendshipRequest")
-	public ResponseEntity<?> sendFriendshipRequest(@RequestParam Long userId, @RequestBody String message) {
+	public ResponseEntity<?> sendFriendshipRequest(@RequestParam String nome, @RequestBody String message) {
 		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 		if (auth == null || !(auth.getPrincipal() instanceof User userDetails)) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Utente non autenticato"));
 		}
 		try {
+			Long userId = userService.loadUserByEmailOrUsername(nome, nome).getId();
 			userService.inviaRichiestaAmicizia(userDetails.getId(), userId, message);
 			return ResponseEntity.ok("Richiesta inviata");
 		} catch (IllegalStateException e) {
