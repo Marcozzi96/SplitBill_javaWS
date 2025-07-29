@@ -115,7 +115,7 @@ public class UserController {
 		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
 	})
 	@GetMapping("/sendFriendshipRequest")
-	public ResponseEntity<?> sendFriendshipRequest(@RequestParam String name, @RequestBody String message) {
+	public ResponseEntity<?> sendFriendshipRequest(@RequestParam String name, @RequestParam String message) {
 		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 		if (auth == null || !(auth.getPrincipal() instanceof User userDetails)) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Utente non autenticato"));
