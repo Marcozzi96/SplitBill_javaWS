@@ -87,7 +87,8 @@ public class AuthController {
         String token = jwtUtil.generateEmailToken(user.getUsername(), user.getPassword(), user.getEmail());
         emailUtil.sendEmail(user.getEmail(), "SplitBill registration", emailUtil.creaCorpoEmailConferma(user.getUsername(), token));
 
-        return ResponseEntity.ok("Conferma l'email all'indirizzo " + user.getEmail());
+        //return ResponseEntity.ok("Conferma l'email all'indirizzo " + user.getEmail());
+        return ResponseEntity.status(HttpStatus.OK).body(Map.of("message", "Conferma l'email all'indirizzo " + user.getEmail()));
     }
 
     @Operation(
