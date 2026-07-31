@@ -8,15 +8,14 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,108 +30,77 @@ import it.javaWS.models.entities.UserGroup;
 import it.javaWS.services.BillService;
 import it.javaWS.services.GroupService;
 import it.javaWS.services.UserService;
-import it.javaWS.utils.JwtUtil;
 
 @RestController
 @RequestMapping("/bills")
-@PreAuthorize("isAuthenticated()")
 @SecurityRequirement(name = "bearerAuth")
 public class BillController {
 
 	private final BillService billService;
 	private final UserService userService;
 	private final GroupService groupService;
-	private final JwtUtil jwtUtil;
 
-	public BillController(BillService billService, UserService userService, GroupService groupService,
-			JwtUtil jwtUtil) {
+	public BillController(BillService billService, UserService userService, GroupService groupService) {
 		this.billService = billService;
 		this.userService = userService;
 		this.groupService = groupService;
-		this.jwtUtil = jwtUtil;
 	}
 
 	@PostMapping("/new")
-	public ResponseEntity<?> createBill(@RequestParam String description, @RequestParam BigDecimal amount,
-			@RequestParam String notes, @RequestParam Long buyerId, @RequestParam Long groupId,
+	public ResponseEntity<BillDTO> createBill(@AuthenticationPrincipal User user, @RequestParam String description,
+			@RequestParam BigDecimal amount, @RequestParam String notes, @RequestParam Long groupId,
 			@RequestBody Map<Long, BigDecimal> usersDebit) {
 
 		if (BigDecimal.ZERO.compareTo(amount) > 0)
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "")); // amount è vuoto, 0 o
-																							// negativo
-		Optional<User> buyerOpt = userService.getUser(buyerId);
+			throw new IllegalArgumentException("Importo non valido");
 
 		Group group = groupService.getGroup(groupId);
+		if (group == null || !groupService.existsByGroupIdAndUserId(groupId, user.getId())) {
+			throw new AccessDeniedException("L'utente non fa parte del gruppo richiesto");
+		}
 
 		Set<UserGroup> userGroups = groupService.getUserGroup(groupId, usersDebit.keySet());
-
 		if (userGroups.size() != usersDebit.size()) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-					.body(Map.of("error", "Non tutti i debitori fanno parte del gruppo")); // NON TUTTI I CLIENTS FANNO
-																							// PARTE DEL GRUPPO
+			throw new IllegalArgumentException("Non tutti i debitori fanno parte del gruppo");
 		}
-		Set<User> clients = userGroups.stream().map(ug -> ug.getUser()).collect(Collectors.toSet());
+		Set<User> clients = userGroups.stream().map(UserGroup::getUser).collect(Collectors.toSet());
 
-		if (buyerOpt.isEmpty() || group == null)
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "buyerId o groupId non validi")); // buyerId
-																														// o
-																														// groupId
-																														// non
-																														// validi
+		Optional<User> buyerOpt = userService.getUser(user.getId());
+		if (buyerOpt.isEmpty())
+			throw new IllegalStateException("Utente non trovato");
 
 		User buyer = buyerOpt.get();
 
-		Map<User, BigDecimal> usersDebitConvertito = new HashMap<User, BigDecimal>();
-
-		for (User user : clients) {
-			usersDebitConvertito.put(user, usersDebit.get(user.getId()));
+		Map<User, BigDecimal> usersDebitConvertito = new HashMap<>();
+		for (User debtor : clients) {
+			usersDebitConvertito.put(debtor, usersDebit.get(debtor.getId()));
 		}
 		Bill bill = billService.createBill(description, amount, notes, buyer, group, usersDebitConvertito);
 
 		BillDTO dto = new BillDTO(bill);
 		Set<TransactionDTO> transactions = billService.getTransactionsByBillId(bill.getId()).stream()
-				.map(t -> new TransactionDTO(t)).collect(Collectors.toSet());
+				.map(TransactionDTO::new).collect(Collectors.toSet());
 		dto.setTransactions(transactions);
 
 		return ResponseEntity.ok(dto);
 	}
 
 	@GetMapping("/group/{groupId}")
-	public ResponseEntity<?> getBillsByGroup(@RequestHeader("Authorization") String authHeader, @PathVariable Long groupId) {
-		//TODO: controllare che l'utente faccia parte del gruppo
-		String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
-
-		User user = userService.getUser(jwtUtil.extractUserId(token)).orElse(null);
-		if (user == null) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Token non valido"));
+	public ResponseEntity<List<BillDTO>> getBillsByGroup(@AuthenticationPrincipal User user, @PathVariable Long groupId) {
+		if (!groupService.existsByGroupIdAndUserId(groupId, user.getId())) {
+			throw new AccessDeniedException("L'utente non fa parte del gruppo richiesto");
 		}
-		
-		if(!groupService.existsByGroupIdAndUserId(groupId, user.getId())) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-					.body(Map.of("error", "L'utente non fa parte del gruppo richiesto"));
-		}
-		List<BillDTO> bills = billService.getBillsByGroup(groupId).stream().map(b->new BillDTO(b)).toList();
-		
-
+		List<BillDTO> bills = billService.getBillsByGroup(groupId).stream().map(BillDTO::new).toList();
 		return ResponseEntity.ok(bills);
 	}
 
 	@GetMapping("/getWhereImBuyer")
-	public ResponseEntity<?> getBillsWhereUserIsBuyer(@RequestHeader("Authorization") String authHeader) {
-
-		String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
-
-		User user = userService.getUser(jwtUtil.extractUserId(token)).orElse(null);
-		if (user == null) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Token non valido"));
-		}
-
+	public ResponseEntity<List<BillDTO>> getBillsWhereUserIsBuyer(@AuthenticationPrincipal User user) {
 		List<Bill> bills = billService.getBillsWhereUserIsBuyer(user.getId());
 
 		List<BillDTO> dtoList = bills.stream().map(b -> {
-
 			Set<TransactionDTO> transactions = billService.getTransactionsByBillId(b.getId()).stream()
-					.map(t -> new TransactionDTO(t)).collect(Collectors.toSet());
+					.map(TransactionDTO::new).collect(Collectors.toSet());
 
 			BillDTO dto = new BillDTO(b);
 			dto.setTransactions(transactions);
@@ -140,35 +108,24 @@ public class BillController {
 		}).toList();
 
 		return ResponseEntity.ok(dtoList);
-
 	}
-	
-	@GetMapping("/getMyBills")
-	public ResponseEntity<?> getBillsByUser(@RequestHeader("Authorization") String authHeader) {
-		
-		String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
 
-		User user = userService.getUser(jwtUtil.extractUserId(token)).orElse(null);
-		if (user == null) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Token non valido"));
-		}
-		
-		List<BillDTO> dtoList = billService.getBillsByUserId(user.getId()).stream().map(b->{
+	@GetMapping("/getMyBills")
+	public ResponseEntity<List<BillDTO>> getBillsByUser(@AuthenticationPrincipal User user) {
+		List<BillDTO> dtoList = billService.getBillsByUserId(user.getId()).stream().map(b -> {
 			Set<TransactionDTO> transactions = billService.getTransactionsByBillId(b.getId()).stream()
-					.map(t -> new TransactionDTO(t)).collect(Collectors.toSet());
+					.map(TransactionDTO::new).collect(Collectors.toSet());
 			BillDTO dto = new BillDTO(b);
 			dto.setTransactions(transactions);
 			return dto;
 		}).toList();
-	
-		
-		return ResponseEntity.ok(dtoList);
 
+		return ResponseEntity.ok(dtoList);
 	}
 
 	@DeleteMapping("/{id}")
-	public void deleteBill(@PathVariable Long id) {
+	public ResponseEntity<Void> deleteBill(@PathVariable Long id) {
 		billService.deleteBill(id);
+		return ResponseEntity.ok().build();
 	}
-
 }

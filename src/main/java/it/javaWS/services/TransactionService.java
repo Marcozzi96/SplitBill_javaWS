@@ -1,6 +1,7 @@
 package it.javaWS.services;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import it.javaWS.models.entities.Transaction;
 import it.javaWS.repositories.TransactionRepository;
@@ -15,10 +16,12 @@ public class TransactionService {
 		
 	}
 	
+	@Transactional
 	public void deleteTransaction(Long id) {
 	    transactionRepository.deleteById(id);
 	}
-	
+
+	@Transactional
 	public void updateTransaction(Transaction transaction) {
 		transactionRepository.save(transaction);
     }

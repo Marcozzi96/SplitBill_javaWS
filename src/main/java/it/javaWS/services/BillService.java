@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import it.javaWS.models.entities.Bill;
 import it.javaWS.models.entities.Group;
@@ -26,6 +27,7 @@ public class BillService {
         this.transactionRepository = transactionRepository;
     }
     
+    @Transactional
     public Bill createBill(String description, BigDecimal amount, String notes,
     		User buyer, Group group, Map<User, BigDecimal> usersDebit) {
     	
@@ -44,7 +46,7 @@ public class BillService {
         //List<User> groupUsers = new ArrayList<>(groupService.getUsersInGroup(groupId));
         
         BigDecimal a = new BigDecimal(0);
-        savedBill.setTransactions(new LinkedList<Transaction>());
+        savedBill.setTransactions(new LinkedList<>());
         
         for (User user : usersDebit.keySet()) {
             if (!user.getId().equals(buyer.getId())) {
@@ -68,30 +70,32 @@ public class BillService {
         return savedBill;
     }
 
+    @Transactional(readOnly = true)
     public List<Bill> getBillsByGroup(Long groupId) {
         return billRepository.findByGroupId(groupId);
     }
-    
+
+    @Transactional(readOnly = true)
     public List<Bill> getBillsWhereUserIsBuyer(Long userId) {
         return billRepository.findByBuyer_Id(userId);
     }
-//    
-//    public List<Bill> getBillsWhereUserIsDebtor(Long userId) {
-//        return billRepository.findByDebtors_Id(userId);
-//    }
-    
+
+    @Transactional(readOnly = true)
     public List<Transaction> getTransactionsByBillId(Long billId) {
         return transactionRepository.findByBill_Id(billId);
     }
-    
+
+    @Transactional(readOnly = true)
     public List<Bill> getBillsByUserId(Long userId) {
         return billRepository.findBillsByUserIdThroughTransactions(userId);
     }
-    
+
+    @Transactional
     public void deleteBill(Long id) {
         billRepository.deleteById(id);
     }
-    
+
+    @Transactional
     public void updateBill(Bill bill) {
     	billRepository.save(bill);
     }

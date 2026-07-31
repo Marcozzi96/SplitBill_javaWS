@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: javaws
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+
+server:
+  port: ${PORT:8080}
+
+jwt:
+  secret: ${JWT_SECRET}
+  validity: ${JWT_VALIDITY:86400}
+
+app:
+  open-link: ${OPEN_LINK:http://localhost:3000}

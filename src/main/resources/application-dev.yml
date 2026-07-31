@@ -1,0 +1,35 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:splitbill;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+  mail:
+    host: localhost
+    port: 25
+    username:
+    password:
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
+jwt:
+  secret: ${JWT_SECRET:dev-secret-key-must-be-at-least-512-bits-long-for-hs512-xxxxx}
+  validity: ${JWT_VALIDITY:86400}
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true

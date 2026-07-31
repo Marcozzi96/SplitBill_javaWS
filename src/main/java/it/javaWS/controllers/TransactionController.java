@@ -1,5 +1,6 @@
 package it.javaWS.controllers;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,8 +21,9 @@ public class TransactionController {
     }
 
     @DeleteMapping("/{id}")
-    public void deleteTransaction(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteTransaction(@PathVariable Long id) {
         transactionService.deleteTransaction(id);
+        return ResponseEntity.ok().build();
     }
     
     

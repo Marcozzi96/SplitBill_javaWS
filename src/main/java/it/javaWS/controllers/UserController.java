@@ -1,13 +1,9 @@
 package it.javaWS.controllers;
 
 import java.time.LocalDate;
-import java.util.Map;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,11 +24,9 @@ import it.javaWS.models.dto.UserDTO;
 import it.javaWS.models.entities.User;
 import it.javaWS.services.UserService;
 import it.javaWS.utils.JwtUtil;
-import jakarta.persistence.EntityNotFoundException;
 
 @RestController
 @RequestMapping("/user")
-@PreAuthorize("isAuthenticated()")
 @SecurityRequirement(name = "bearerAuth")
 public class UserController {
 
@@ -52,12 +46,8 @@ public class UserController {
 		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
 	})
 	@GetMapping("/me")
-	public ResponseEntity<?> getUser() {
-		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-		if (auth == null || !(auth.getPrincipal() instanceof User userDetails)) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Utente non autenticato"));
-		}
-		return ResponseEntity.ok(new UserDTO(userDetails));
+	public ResponseEntity<UserDTO> getUser(@AuthenticationPrincipal User user) {
+		return ResponseEntity.ok(new UserDTO(user));
 	}
 
 	@Operation(summary = "Aggiorna le informazioni dell'utente autenticato")
@@ -66,20 +56,15 @@ public class UserController {
 		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
 	})
 	@PutMapping("/update")
-	public ResponseEntity<?> updateUser(@RequestBody User updatedUser) {
-		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-		if (auth == null || !(auth.getPrincipal() instanceof User userDetails)) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Utente non autenticato"));
-		}
-		User userFromDB = userDetails;
+	public ResponseEntity<AuthResponse> updateUser(@AuthenticationPrincipal User user, @RequestBody User updatedUser) {
 		if (updatedUser.getEmail() != null)
-			userFromDB.setEmail(updatedUser.getEmail().toLowerCase());
+			user.setEmail(updatedUser.getEmail().toLowerCase());
 		if (updatedUser.getUsername() != null)
-			userFromDB.setUsername(updatedUser.getUsername());
+			user.setUsername(updatedUser.getUsername());
 		if (updatedUser.getPassword() != null) {
-			userFromDB.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
+			user.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
 		}
-		User updated = userService.updateUser(userFromDB);
+		User updated = userService.updateUser(user);
 		String newToken = jwtUtil.generateToken(updated);
 		return ResponseEntity.ok(new AuthResponse(newToken, new UserDTO(updated)));
 	}
@@ -91,19 +76,12 @@ public class UserController {
 		@ApiResponse(responseCode = "500", description = "Errore durante l'eliminazione dell'utente")
 	})
 	@DeleteMapping("/delete")
-	public ResponseEntity<?> deleteUser() {
-		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-		if (auth == null || !(auth.getPrincipal() instanceof User userDetails)) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Utente non autenticato"));
-		}
-		userDetails.setEmail("utente." + userDetails.getId() + LocalDate.now() + "@eliminato");
-		userDetails.setUsername("UtenteEliminato" + userDetails.getId() + LocalDate.now());
-		userDetails.setPassword("UtenteEliminato" + userDetails.getId() + LocalDate.now());
+	public ResponseEntity<String> deleteUser(@AuthenticationPrincipal User user) {
+		user.setEmail("utente." + user.getId() + LocalDate.now() + "@eliminato");
+		user.setUsername("UtenteEliminato" + user.getId() + LocalDate.now());
+		user.setPassword("UtenteEliminato" + user.getId() + LocalDate.now());
 
-		User updated = userService.updateUser(userDetails);
-		if (updated == null) {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Errore in fase di updateUser"));
-		}
+		userService.updateUser(user);
 		return ResponseEntity.ok("Success");
 	}
 
@@ -115,22 +93,11 @@ public class UserController {
 		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
 	})
 	@GetMapping("/sendFriendshipRequest")
-	public ResponseEntity<?> sendFriendshipRequest(@RequestParam String name, @RequestParam String message) {
-		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-		if (auth == null || !(auth.getPrincipal() instanceof User userDetails)) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Utente non autenticato"));
-		}
-		try {
-			Long userId = userService.loadUserByEmailOrUsername(name, name).getId();
-			userService.inviaRichiestaAmicizia(userDetails.getId(), userId, message);
-			return ResponseEntity.status(HttpStatus.OK).body(Map.of("message", "Richiesta inviata"));
-		} catch (IllegalStateException e) {
-			return ResponseEntity.status(HttpStatus.ALREADY_REPORTED).body(Map.of("error", e.getMessage()));
-		} catch (EntityNotFoundException | IllegalArgumentException e) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
-		} catch (Exception e) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Errore generico."));
-		}
+	public ResponseEntity<?> sendFriendshipRequest(@AuthenticationPrincipal User user, @RequestParam String name,
+			@RequestParam String message) throws Exception {
+		Long userId = userService.loadUserByEmailOrUsername(name, name).getId();
+		userService.inviaRichiestaAmicizia(user.getId(), userId, message);
+		return ResponseEntity.ok("Richiesta inviata");
 	}
 
 	@Operation(summary = "Recupera le richieste di amicizia ricevute")
@@ -139,12 +106,8 @@ public class UserController {
 		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
 	})
 	@GetMapping("/getFriendshipReqReceived")
-	public ResponseEntity<?> getFriendshipReqRec() {
-		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-		if (auth == null || !(auth.getPrincipal() instanceof User userDetails)) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Utente non autenticato"));
-		}
-		return ResponseEntity.ok(userService.getRichiesteAmiciziaRicevute(userDetails.getId()).stream()
+	public ResponseEntity<?> getFriendshipReqRec(@AuthenticationPrincipal User user) {
+		return ResponseEntity.ok(userService.getRichiesteAmiciziaRicevute(user.getId()).stream()
 				.map(FriendshipReqRecDTO::new).toList());
 	}
 
@@ -154,12 +117,8 @@ public class UserController {
 		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
 	})
 	@GetMapping("/getFriendshipReqSent")
-	public ResponseEntity<?> getFriendshipReqSen() {
-		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-		if (auth == null || !(auth.getPrincipal() instanceof User userDetails)) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Utente non autenticato"));
-		}
-		return ResponseEntity.ok(userService.getRichiesteAmiciziaInviate(userDetails.getId()).stream()
+	public ResponseEntity<?> getFriendshipReqSen(@AuthenticationPrincipal User user) {
+		return ResponseEntity.ok(userService.getRichiesteAmiciziaInviate(user.getId()).stream()
 				.map(FriendshipReqSenDTO::new).toList());
 	}
 
@@ -170,19 +129,9 @@ public class UserController {
 		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
 	})
 	@GetMapping("/acceptFriendship")
-	public ResponseEntity<?> acceptFriendship(@RequestParam Long friendId) {
-		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-		if (auth == null || !(auth.getPrincipal() instanceof User userDetails)) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Utente non autenticato"));
-		}
-		try {
-			userService.accettaRichiestaAmicizia(userDetails.getId(), friendId);
-			return ResponseEntity.ok("Richiesta di amicizia accettata");
-		} catch (EntityNotFoundException | IllegalStateException e) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
-		} catch (Exception e) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Errore generico."));
-		}
+	public ResponseEntity<String> acceptFriendship(@AuthenticationPrincipal User user, @RequestParam Long friendId) {
+		userService.accettaRichiestaAmicizia(user.getId(), friendId);
+		return ResponseEntity.ok("Richiesta di amicizia accettata");
 	}
 
 	@Operation(summary = "Rifiuta una richiesta di amicizia. Può essere usata anche per annullare una richiesta inviata da te")
@@ -192,19 +141,9 @@ public class UserController {
 		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
 	})
 	@GetMapping("/refuseFriendship")
-	public ResponseEntity<?> refuseFriendship(@RequestParam Long friendId) {
-		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-		if (auth == null || !(auth.getPrincipal() instanceof User userDetails)) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Utente non autenticato"));
-		}
-		try {
-			userService.rifiutaRichiestaAmicizia(userDetails.getId(), friendId);
-			return ResponseEntity.ok("Richiesta di amicizia rifiutata");
-		} catch (EntityNotFoundException | IllegalStateException e) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
-		} catch (Exception e) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Errore generico."));
-		}
+	public ResponseEntity<String> refuseFriendship(@AuthenticationPrincipal User user, @RequestParam Long friendId) {
+		userService.rifiutaRichiestaAmicizia(user.getId(), friendId);
+		return ResponseEntity.ok("Richiesta di amicizia rifiutata");
 	}
 
 	@Operation(summary = "Annulla un'amicizia esistente")
@@ -214,19 +153,9 @@ public class UserController {
 		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
 	})
 	@DeleteMapping("/cancelFriendship")
-	public ResponseEntity<?> cancelFriendship(@RequestParam Long friendId) {
-		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-		if (auth == null || !(auth.getPrincipal() instanceof User userDetails)) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Utente non autenticato"));
-		}
-		try {
-			userService.rimuoviAmico(userDetails.getId(), friendId);
-			return ResponseEntity.ok("Amicizia annullata");
-		} catch (EntityNotFoundException | IllegalStateException e) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
-		} catch (Exception e) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Errore generico."));
-		}
+	public ResponseEntity<String> cancelFriendship(@AuthenticationPrincipal User user, @RequestParam Long friendId) {
+		userService.rimuoviAmico(user.getId(), friendId);
+		return ResponseEntity.ok("Amicizia annullata");
 	}
 
 	@Operation(summary = "Recupera la lista degli amici dell'utente")
@@ -235,11 +164,7 @@ public class UserController {
 		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
 	})
 	@GetMapping("/getFriends")
-	public ResponseEntity<?> getFriends() {
-		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-		if (auth == null || !(auth.getPrincipal() instanceof User userDetails)) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Utente non autenticato"));
-		}
-		return ResponseEntity.ok(userService.getAmici(userDetails.getId()).stream().map(UserDTO::new).toList());
+	public ResponseEntity<?> getFriends(@AuthenticationPrincipal User user) {
+		return ResponseEntity.ok(userService.getAmici(user.getId()).stream().map(UserDTO::new).toList());
 	}
 }

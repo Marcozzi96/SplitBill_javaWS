@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import it.javaWS.models.dto.UserBalanceDTO;
 import it.javaWS.services.BalanceService;
 
 @RestController
@@ -20,10 +21,8 @@ public class BalanceController {
         this.balanceService = balanceService;
     }
 
-    // GET /balance/3
     @GetMapping("/{userId}")
-    public ResponseEntity<?> getUserBalance(@PathVariable Long userId) {
-//        return balanceService.getDetailedBalance(userId);
+    public ResponseEntity<UserBalanceDTO> getUserBalance(@PathVariable Long userId) {
         return ResponseEntity.ok(balanceService.getDetailedBalance(userId));
     }
 }

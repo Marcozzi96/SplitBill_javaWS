@@ -16,14 +16,21 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Entity
 @Check(constraints = "user1_id < user2_id")
 @Table(name = "friendship", uniqueConstraints = @UniqueConstraint(columnNames = {"user1_id", "user2_id"}))
 public class Friendship {
 
+    @EqualsAndHashCode.Include
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -35,20 +42,18 @@ public class Friendship {
     @ManyToOne
     @JoinColumn(name = "user2_id", nullable = false)
     private User user2;
-    
+
     @ManyToOne
     @JoinColumn(name = "user_tobe_confirmed_id", nullable = false)
     private User userToBeConfirmed;
-    
+
     @Column(name = "messaggio", nullable = true)
     private String messaggio;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private StatoAmicizia stato;  // Enum: IN_ATTESA, ACCETTATA, RIFIUTATA
+    private StatoAmicizia stato;
 
     @Column(name = "data_richiesta", nullable = false)
     private LocalDateTime dataRichiesta;
-
-    // Getters, setters...
 }

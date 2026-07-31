@@ -1,12 +1,12 @@
 package it.javaWS.controllers;
 
 import java.time.LocalDate;
-import java.util.Map;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,7 +36,8 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final EmailUtil emailUtil;
 
-    public AuthController(AuthenticationManager authenticationManager, PasswordEncoder passwordEncoder, UserService userService, JwtUtil jwtUtil, EmailUtil emailUtil) {
+    public AuthController(AuthenticationManager authenticationManager, PasswordEncoder passwordEncoder,
+            UserService userService, JwtUtil jwtUtil, EmailUtil emailUtil) {
         this.authenticationManager = authenticationManager;
         this.passwordEncoder = passwordEncoder;
         this.userService = userService;
@@ -53,16 +54,16 @@ public class AuthController {
         @ApiResponse(responseCode = "401", description = "Credenziali non valide")
     })
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody AuthRequest request) {
+    public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
         try {
-        	User user = userService.loadUserByEmailOrUsername(request.getEmail(), request.getUsername());
+            User user = userService.loadUserByEmailOrUsername(request.getEmail(), request.getUsername());
             authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(user.getUsername(), request.getPassword())
             );
             String token = jwtUtil.generateToken(user);
             return ResponseEntity.ok(new AuthResponse(token, new UserDTO(user)));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", e.getMessage()));
+        } catch (AuthenticationException e) {
+            throw new BadCredentialsException("Credenziali non valide");
         }
     }
 
@@ -75,20 +76,21 @@ public class AuthController {
         @ApiResponse(responseCode = "400", description = "Username o email già utilizzati")
     })
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody AuthRequest request) {
-    	User user = new User();
-    	user.setUsername(request.getUsername());
-    	user.setEmail(request.getEmail());
-    	user.setPassword(request.getPassword());
+    public ResponseEntity<String> register(@RequestBody AuthRequest request) {
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setEmail(request.getEmail());
+        user.setPassword(request.getPassword());
+
         if (userService.existsByUsernameOrEmail(user)) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Username o Email già utilizzati"));
+            throw new IllegalStateException("Username o Email già utilizzati");
         }
 
         String token = jwtUtil.generateEmailToken(user.getUsername(), user.getPassword(), user.getEmail());
-        emailUtil.sendEmail(user.getEmail(), "SplitBill registration", emailUtil.creaCorpoEmailConferma(user.getUsername(), token));
+        emailUtil.sendEmail(user.getEmail(), "SplitBill registration",
+                emailUtil.creaCorpoEmailConferma(user.getUsername(), token));
 
-        //return ResponseEntity.ok("Conferma l'email all'indirizzo " + user.getEmail());
-        return ResponseEntity.status(HttpStatus.OK).body(Map.of("message", "Conferma l'email all'indirizzo " + user.getEmail()));
+        return ResponseEntity.ok("Conferma l'email all'indirizzo " + user.getEmail());
     }
 
     @Operation(
@@ -100,7 +102,7 @@ public class AuthController {
         @ApiResponse(responseCode = "400", description = "Token scaduto o non valido")
     })
     @GetMapping("/confirmEmail")
-    public ResponseEntity<?> confirmRegistration(@RequestParam String token) {
+    public ResponseEntity<UserDTO> confirmRegistration(@RequestParam String token) {
         String username = jwtUtil.extractUsername(token);
         String password = jwtUtil.extractPassword(token);
         String email = jwtUtil.extractEmail(token);
@@ -110,11 +112,11 @@ public class AuthController {
         user.setEmail(email);
 
         if (jwtUtil.isTokenExpired(token)) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Token scaduto"));
+            throw new IllegalStateException("Token scaduto");
         }
 
         if (userService.existsByUsernameOrEmail(user)) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Token già utilizzato"));
+            throw new IllegalStateException("Token già utilizzato");
         }
 
         user.setRegDate(LocalDate.now());
@@ -122,10 +124,11 @@ public class AuthController {
 
         User newUser = userService.createUser(user);
         if (newUser == null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Token non valido"));
+            throw new IllegalStateException("Token non valido");
         }
 
-        emailUtil.sendEmail(newUser.getEmail(), "SplitBill registration", emailUtil.creaCorpoEmailBenvenuto(newUser.getUsername()));
+        emailUtil.sendEmail(newUser.getEmail(), "SplitBill registration",
+                emailUtil.creaCorpoEmailBenvenuto(newUser.getUsername()));
         return ResponseEntity.ok(new UserDTO(newUser));
     }
 }

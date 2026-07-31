@@ -27,7 +27,7 @@ public class GroupService {
 	
 
 	public GroupService(GroupRepository groupRepository, UserRepository userRepository,
-			UserGroupRepository userGroupRepository, FriendshipService friendshipService) {
+			UserGroupRepository userGroupRepository) {
 		this.groupRepository = groupRepository;
 		this.userRepository = userRepository;
 		this.userGroupRepository = userGroupRepository;
@@ -48,7 +48,7 @@ public class GroupService {
 		group.setCreationDate(LocalDate.now());
 
 		// 4. Crea relazioni UserGroup
-		Set<UserGroup> userGroups = new HashSet<UserGroup>();
+		Set<UserGroup> userGroups = new HashSet<>();
 		for (User user : users) {
 			UserGroup userGroup = new UserGroup();
 			userGroup.setUser(user);
@@ -70,18 +70,18 @@ public class GroupService {
 		return group;
 	}
 
-	@Transactional
+	@Transactional(readOnly = true)
 	public Group getGroup(Long id) {
 		Optional<Group> groupOpt = groupRepository.findById(id);
 		return groupOpt.orElse(null);
 	}
-	
+
 	@Transactional
 	public Group addUsersToGroup(Group group, Set<Long> userIds) {
 		
 		Set<User> usersToAdd = new HashSet<>(userRepository.findAllById(userIds));
 
-		Set<UserGroup> userGroups = new HashSet<UserGroup>();
+		Set<UserGroup> userGroups = new HashSet<>();
 		
 //		Set<User> userToBe = group.getUsers();
 		
@@ -133,12 +133,12 @@ public class GroupService {
 	
 	
 		
+	@Transactional(readOnly = true)
 	public List<Group> getGroupsByUserId(Long userId) {
 		return groupRepository.getGroupsByUserId(userId);
 	}
-	
-	
 
+	@Transactional
 	public Boolean deleteGroup(Long id) {
 		Optional<Group> groupOpt = groupRepository.findById(id);
 		if(groupOpt.isEmpty()) return false;
@@ -159,14 +159,17 @@ public class GroupService {
 	            .collect(Collectors.toSet());
 	}
 	
+	@Transactional(readOnly = true)
 	public Set<UserGroup> getUserGroup(Long groupId, Set<Long> userIds){
 		return userGroupRepository.findByGroup_IdAndUser_IdIn(groupId, userIds);
 	}
-	
+
+    @Transactional(readOnly = true)
     public Set<UserGroup> getByUser(User user) {
         return userGroupRepository.findByUser(user);
     }
 
+    @Transactional(readOnly = true)
     public Set<UserGroup> getByGroup(Group group) {
         return userGroupRepository.findByGroup(group);
     }
@@ -176,26 +179,32 @@ public class GroupService {
         userGroupRepository.deleteByGroup_IdAndUser_IdIn(groupId, userIds);
     }
 
+    @Transactional(readOnly = true)
     public Set<UserGroup> getByGroupIdAndUserIds(Long groupId, Set<Long> userIds) {
         return userGroupRepository.findByGroup_IdAndUser_IdIn(groupId, userIds);
     }
 
+    @Transactional(readOnly = true)
     public boolean existsByGroupIdAndUserId(Long groupId, Long userId) {
         return userGroupRepository.existsByGroupIdAndUserId(groupId, userId);
     }
 
+    @Transactional(readOnly = true)
     public List<UserGroup> getByGroupId(Long groupId) {
         return userGroupRepository.findByGroupId(groupId);
     }
 
+    @Transactional(readOnly = true)
     public Optional<UserGroup> getById(UserGroupId id) {
         return userGroupRepository.findById(id);
     }
 
+    @Transactional
     public UserGroup save(UserGroup userGroup) {
         return userGroupRepository.save(userGroup);
     }
 
+    @Transactional
     public void delete(UserGroup userGroup) {
         userGroupRepository.delete(userGroup);
     }

@@ -1,0 +1,50 @@
+C:\Users\agost\IdeaProjects\SplitBill_javaWS\src\main\java\it\javaWS\services\TransactionService.java
+Warning:(25, 14) Method 'updateTransaction(it.javaWS.models.entities.Transaction)' is never used
+C:\Users\agost\IdeaProjects\SplitBill_javaWS\src\main\java\it\javaWS\controllers\advice\GlobalExceptionHandler.java
+Warning:(19, 48) Method 'handleNotFound(jakarta.persistence.EntityNotFoundException)' is never used
+Warning:(24, 48) Method 'handleBadRequest(java.lang.RuntimeException)' is never used
+Warning:(29, 48) Method 'handleAccessDenied(org.springframework.security.access.AccessDeniedException)' is never used
+Warning:(34, 48) Method 'handleAuthentication(org.springframework.security.core.AuthenticationException)' is never used
+Warning:(39, 48) Method 'handleGeneric(java.lang.Exception)' is never used
+Warning:(39, 72) Parameter 'ex' is never used
+C:\Users\agost\IdeaProjects\SplitBill_javaWS\src\main\java\it\javaWS\services\FriendshipService.java
+Warning:(30, 20) Calls to boolean method 'areAllFriends()' are always inverted
+Warning:(51, 23) Return value of the method is never used
+C:\Users\agost\IdeaProjects\SplitBill_javaWS\src\main\java\it\javaWS\utils\JwtUtil.java
+Warning:(42, 14) Method 'extractUserId(java.lang.String)' is never used
+C:\Users\agost\IdeaProjects\SplitBill_javaWS\src\main\java\it\javaWS\services\UserService.java
+Warning:(33, 7) 'userRepository.findByEmailOrUsernameIgnoreCase(user.getEmail(), user.getUsername()).size() > 0' can be replaced with '!userRepository.findByEmailOrUsernameIgnoreCase(user.getEmail(), user.getUsername()).isEmpty()'
+Warning:(44, 20) Method 'getAllUsers()' is never used
+Warning:(49, 17) Method 'deleteUser(java.lang.Long)' is never used
+Warning:(50, 20) Can be replaced with 'isEmpty()'
+Warning:(84, 17) Method 'existsByUsername(java.lang.String)' is never used
+Warning:(90, 3) 'if' statement can be simplified
+Warning:(90, 7) 'userRepository.findByEmailOrUsernameIgnoreCase(user.getEmail(), user.getUsername()).size() > 0' can be replaced with '!userRepository.findByEmailOrUsernameIgnoreCase(user.getEmail(), user.getUsername()).isEmpty()'
+Warning:(106, 54) Number objects are compared using '==', not 'equals()'
+Warning:(115, 87) Number objects are compared using '==', not 'equals()'
+Warning:(157, 47) Number objects are compared using '!=', not 'equals()'
+Warning:(186, 48) Number objects are compared using '!=', not 'equals()'
+C:\Users\agost\IdeaProjects\SplitBill_javaWS\src\main\java\it\javaWS\config\security\JwtFilter.java
+Warning:(30, 85) Not annotated parameter overrides @NonNullApi parameter
+Warning:(30, 107) Not annotated parameter overrides @NonNullApi parameter
+C:\Users\agost\IdeaProjects\SplitBill_javaWS\src\main\java\it\javaWS\services\BalanceService.java
+Warning:(34, 23) Method 'getUserBalance(java.lang.Long)' is never used
+C:\Users\agost\IdeaProjects\SplitBill_javaWS\src\main\java\it\javaWS\models\entities\Friendship.java
+Warning:(50, 44) Redundant default parameter value assignment
+C:\Users\agost\IdeaProjects\SplitBill_javaWS\src\main\java\it\javaWS\services\GroupService.java
+Warning:(51, 43) Explicit type argument UserGroup can be replaced with <>
+Warning:(84, 43) Explicit type argument UserGroup can be replaced with <>
+Warning:(142, 17) Method 'deleteGroup(java.lang.Long)' is never used
+Warning:(149, 17) Method 'isUserInGroup(java.lang.Long, java.lang.Long)' is never used
+Warning:(168, 27) Method 'getByUser(it.javaWS.models.entities.User)' is never used
+Warning:(173, 27) Method 'getByGroup(it.javaWS.models.entities.Group)' is never used
+Warning:(178, 17) Method 'deleteByGroupIdAndUserIds(java.lang.Long, java.util.Set<java.lang.Long>)' is never used
+Warning:(183, 27) Method 'getByGroupIdAndUserIds(java.lang.Long, java.util.Set<java.lang.Long>)' is never used
+Warning:(188, 20) Calls to boolean method 'existsByGroupIdAndUserId()' are always inverted
+Warning:(193, 28) Method 'getByGroupId(java.lang.Long)' is never used
+Warning:(198, 32) Method 'getById(it.javaWS.models.entities.UserGroupId)' is never used
+Warning:(203, 22) Method 'save(it.javaWS.models.entities.UserGroup)' is never used
+Warning:(208, 17) Method 'delete(it.javaWS.models.entities.UserGroup)' is never used
+C:\Users\agost\IdeaProjects\SplitBill_javaWS\src\main\java\it\javaWS\services\BillService.java
+Warning:(49, 50) Explicit type argument Transaction can be replaced with <>
+Warning:(99, 17) Method 'updateBill(it.javaWS.models.entities.Bill)' is never used

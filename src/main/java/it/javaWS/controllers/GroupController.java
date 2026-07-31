@@ -1,14 +1,11 @@
 package it.javaWS.controllers;
 
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,10 +24,10 @@ import it.javaWS.models.entities.Group;
 import it.javaWS.models.entities.User;
 import it.javaWS.services.FriendshipService;
 import it.javaWS.services.GroupService;
+import jakarta.persistence.EntityNotFoundException;
 
 @RestController
 @RequestMapping("/groups")
-@PreAuthorize("isAuthenticated()")
 @SecurityRequirement(name = "bearerAuth")
 public class GroupController {
 
@@ -46,20 +43,12 @@ public class GroupController {
 	@ApiResponses(value = { @ApiResponse(responseCode = "200", description = "Gruppo creato con successo"),
 			@ApiResponse(responseCode = "400", description = "Errore durante la creazione del gruppo") })
 	@PostMapping("/create")
-	public ResponseEntity<?> createGroup(@RequestParam String name, @RequestParam String description,
-			@RequestBody Set<Long> userIds) {
+	public ResponseEntity<GroupDTO> createGroup(@AuthenticationPrincipal User user, @RequestParam String name,
+			@RequestParam String description, @RequestBody Set<Long> userIds) {
+		Long userId = user.getId();
 
-		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-		if (auth == null || !(auth.getPrincipal() instanceof User userDetails)) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Utente non autenticato"));
-		}
-
-		Long userId = userDetails.getId();
-
-		
 		if (!friendshipService.areAllFriends(userId, userIds)) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Alcuni utenti non sono tuoi amici"));
-
+			throw new IllegalArgumentException("Alcuni utenti non sono tuoi amici");
 		}
 		userIds.add(userId);
 		Group group = groupService.createGroup(name, description, userIds);
@@ -72,20 +61,9 @@ public class GroupController {
 	@ApiResponses(value = { @ApiResponse(responseCode = "200", description = "Gruppo trovato"),
 			@ApiResponse(responseCode = "401", description = "Accesso non autorizzato") })
 	@GetMapping("/{groupId}")
-	public ResponseEntity<?> getGroup(@PathVariable Long groupId) {
-
-		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-		if (auth == null || !(auth.getPrincipal() instanceof User userDetails)) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Utente non autenticato"));
-		}
-
-		Long userId = userDetails.getId();
-
+	public ResponseEntity<GroupDTO> getGroup(@AuthenticationPrincipal User user, @PathVariable Long groupId) {
 		Group group = groupService.getGroup(groupId);
-		if (group == null || !groupService.existsByGroupIdAndUserId(group.getId(), userId)) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-					.body(Map.of("error", "L'utente non fa parte del gruppo richiesto"));
-		}
+		checkMembership(group, user.getId());
 
 		GroupDTO dto = new GroupDTO(group);
 		dto.setUsers(groupService.getUsersInGroup(groupId));
@@ -95,39 +73,25 @@ public class GroupController {
 	@Operation(summary = "Lista gruppi dell'utente", description = "Restituisce tutti i gruppi a cui l'utente autenticato appartiene")
 	@ApiResponse(responseCode = "200", description = "Lista dei gruppi restituita")
 	@GetMapping("")
-	public ResponseEntity<?> getGroupsByUser() {
-		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-		if (auth == null || !(auth.getPrincipal() instanceof User userDetails)) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Utente non autenticato"));
-		}
-
-		Long userId = userDetails.getId();
-
-		return ResponseEntity.ok(groupService.getGroupsByUserId(userId).stream().map(GroupDTO::new).toList());
+	public ResponseEntity<?> getGroupsByUser(@AuthenticationPrincipal User user) {
+		return ResponseEntity.ok(groupService.getGroupsByUserId(user.getId()).stream().map(GroupDTO::new).toList());
 	}
 
 	@Operation(summary = "Aggiungi utenti a un gruppo", description = "Aggiunge una lista di utenti a un gruppo esistente, se l'utente autenticato ne fa parte")
 	@ApiResponses(value = { @ApiResponse(responseCode = "200", description = "Utenti aggiunti al gruppo"),
 			@ApiResponse(responseCode = "401", description = "Accesso non autorizzato") })
 	@PostMapping("/addUsers/{groupId}")
-	public ResponseEntity<?> addUsersToGroup(@PathVariable Long groupId, @RequestBody Set<Long> userIds) {
-
-		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-		if (auth == null || !(auth.getPrincipal() instanceof User userDetails)) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Utente non autenticato"));
-		}
-		Long userId = userDetails.getId();
+	public ResponseEntity<GroupDTO> addUsersToGroup(@AuthenticationPrincipal User user, @PathVariable Long groupId,
+			@RequestBody Set<Long> userIds) {
+		Long userId = user.getId();
 		if (!friendshipService.areAllFriends(userId, userIds)) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Alcuni utenti non sono tuoi amici"));
+			throw new IllegalArgumentException("Alcuni utenti non sono tuoi amici");
 		}
 
 		userIds.add(userId);
 
 		Group group = groupService.getGroup(groupId);
-		if (group == null || !groupService.existsByGroupIdAndUserId(group.getId(), userId)) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-					.body(Map.of("error", "L'utente non fa parte del gruppo richiesto"));
-		}
+		checkMembership(group, userId);
 
 		Group updatedGroup = groupService.addUsersToGroup(group, userIds);
 		GroupDTO dto = new GroupDTO(updatedGroup);
@@ -141,29 +105,26 @@ public class GroupController {
 			@ApiResponse(responseCode = "400", description = "Gruppo non trovato"),
 			@ApiResponse(responseCode = "401", description = "Accesso non autorizzato") })
 	@DeleteMapping("/leave/{groupId}")
-	public ResponseEntity<?> leaveTheGroup(@PathVariable Long groupId) {
-
-		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-		if (auth == null || !(auth.getPrincipal() instanceof User userDetails)) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Utente non autenticato"));
-		}
-
-		Long userId = userDetails.getId();
+	public ResponseEntity<GroupDTO> leaveTheGroup(@AuthenticationPrincipal User user, @PathVariable Long groupId) {
+		Long userId = user.getId();
 
 		Group group = groupService.getGroup(groupId);
-		if (group == null || !groupService.existsByGroupIdAndUserId(group.getId(), userId)) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-					.body(Map.of("error", "L'utente non fa parte del gruppo richiesto"));
-		}
+		checkMembership(group, userId);
 
 		Set<Long> userIds = new HashSet<>();
 		userIds.add(userId);
 
 		Group updatedGroup = groupService.removeUsersFromGroup(groupId, userIds);
 		if (updatedGroup == null)
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Gruppo non trovato"));
+			throw new EntityNotFoundException("Gruppo non trovato");
 
 		GroupDTO dto = new GroupDTO(updatedGroup).setUsers(groupService.getUsersInGroup(groupId));
 		return ResponseEntity.ok(dto);
+	}
+
+	private void checkMembership(Group group, Long userId) {
+		if (group == null || !groupService.existsByGroupIdAndUserId(group.getId(), userId)) {
+			throw new AccessDeniedException("L'utente non fa parte del gruppo richiesto");
+		}
 	}
 }

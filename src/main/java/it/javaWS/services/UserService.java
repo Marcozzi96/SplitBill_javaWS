@@ -30,24 +30,24 @@ public class UserService implements UserDetailsService {
 	@Transactional
 	public User createUser(User user) {
 
-		if (userRepository.findByEmailOrUsernameIgnoreCase(user.getEmail(), user.getUsername()).size() > 0)
+		if (!userRepository.findByEmailOrUsernameIgnoreCase(user.getEmail(), user.getUsername()).isEmpty())
 			return null; // Username o Email già utilizzati
 		return userRepository.save(user);
 	}
 
-	@Transactional
+	@Transactional(readOnly = true)
 	public Optional<User> getUser(Long id) {
 		return userRepository.findById(id);
 	}
 
-	@Transactional
+	@Transactional(readOnly = true)
 	public List<User> getAllUsers() {
 		return userRepository.findAll();
 	}
 
 	@Transactional
 	public Boolean deleteUser(Long id) {
-		if (!getUser(id).isPresent())
+		if (getUser(id).isEmpty())
 			return false;
 		userRepository.deleteById(id);
 		return true;
@@ -59,11 +59,13 @@ public class UserService implements UserDetailsService {
 	}
 
 	@Override
+	@Transactional(readOnly = true)
 	public User loadUserByUsername(String username) throws UsernameNotFoundException {
 		return userRepository.findByUsernameIgnoreCase(username)
 				.orElseThrow(() -> new UsernameNotFoundException("Credenziali non valide"));
 	}
 
+	@Transactional(readOnly = true)
 	public User loadUserByEmailOrUsername(String email, String username) {
 		Set<User> users = userRepository.findByEmailOrUsernameIgnoreCase(email, username);
 		if (users.size() != 1) {
@@ -73,20 +75,22 @@ public class UserService implements UserDetailsService {
 		return users.stream().findFirst().get();
 	}
 
+	@Transactional(readOnly = true)
 	public User getByUsername(String username) {
 		return userRepository.findByUsernameIgnoreCase(username).orElse(null);
 	}
 
+	@Transactional(readOnly = true)
 	public Boolean existsByUsername(String username) {
 		return userRepository.existsByUsername(username);
 	}
 
+	@Transactional(readOnly = true)
 	public Boolean existsByUsernameOrEmail(User user) {
-		if (userRepository.findByEmailOrUsernameIgnoreCase(user.getEmail(), user.getUsername()).size() > 0)
-			return true; // Username o Email già utilizzati
-		return false;
+		return !userRepository.findByEmailOrUsernameIgnoreCase(user.getEmail(), user.getUsername()).isEmpty(); // Username o Email già utilizzati
 	}
 
+	@Transactional
 	public void inviaRichiestaAmicizia(Long userId, Long otherId, String message) throws Exception {
 		if (userId.equals(otherId))
 			throw new IllegalArgumentException("Non puoi aggiungere te stesso");
@@ -97,7 +101,7 @@ public class UserService implements UserDetailsService {
 
 		Optional<Friendship> existing = friendshipService.findFriendshipBetweenUsers(user1Id, user2Id);
 		if (existing.isPresent()) { // Esiste la riga
-			if (existing.get().getUserToBeConfirmed().getId() == userId) { // l'utente che deve confermare è lo stesso
+			if (existing.get().getUserToBeConfirmed().getId().equals(userId)) { // l'utente che deve confermare è lo stesso
 																			// che prova a fare richiesta
 				if (existing.get().getStato().equals(StatoAmicizia.IN_ATTESA)) {
 					throw new IllegalStateException("Amicizia già in attesa di conferma");
@@ -106,7 +110,7 @@ public class UserService implements UserDetailsService {
 				} else if (existing.get().getStato().equals(StatoAmicizia.RIFIUTATA)) { // Devo aggiornare la riga
 																						// esistente
 					Friendship f = existing.get();
-					User userToBeConfirmed = userRepository.findById(f.getUserToBeConfirmed().getId()==userId?otherId:userId)
+					User userToBeConfirmed = userRepository.findById(f.getUserToBeConfirmed().getId().equals(userId) ? otherId : userId)
 							.orElseThrow(() -> new EntityNotFoundException("Utente non trovato"));
 					f.setUserToBeConfirmed(userToBeConfirmed); // cambiare l'utente che deve accettare
 					f.setStato(StatoAmicizia.IN_ATTESA); // Rimettere la richiesta in attesa
@@ -144,10 +148,11 @@ public class UserService implements UserDetailsService {
 		friendshipService.save(friendship);
 	}
 
+	@Transactional
 	public void accettaRichiestaAmicizia(Long userId, Long requesterId) {
 		Friendship friendship = friendshipService.findFriendshipBetweenUsers(userId, requesterId)
 				.orElseThrow(() -> new EntityNotFoundException("Richiesta non trovata"));
-		if(friendship.getUserToBeConfirmed().getId()!=userId) {
+		if(!friendship.getUserToBeConfirmed().getId().equals(userId)) {
 			throw new IllegalStateException("La richiesta non può essere accettata da chi la invia");
 		}
 		if (friendship.getStato() != StatoAmicizia.IN_ATTESA) {
@@ -158,22 +163,25 @@ public class UserService implements UserDetailsService {
 		friendshipService.save(friendship);
 	}
 
+	@Transactional(readOnly = true)
 	public Set<Friendship> getRichiesteAmiciziaInviate(Long userId) {
 		return friendshipService.getSentFriendRequests(userId);
 
 	}
 
+	@Transactional(readOnly = true)
 	public Set<Friendship> getRichiesteAmiciziaRicevute(Long userId) {
 		return friendshipService.getReceivedFriendRequests(userId);
 
 	}
 
+	@Transactional
 	public void rifiutaRichiestaAmicizia(Long userId, Long requesterId) {
 		Friendship friendship = friendshipService.findFriendshipBetweenUsers(userId, requesterId)
 				.orElseThrow(() -> new EntityNotFoundException("Richiesta non trovata"));
 		if(!friendship.getStato().equals(StatoAmicizia.IN_ATTESA))
 			throw new IllegalStateException("Richiesta di amicizia 'IN ATTESA' non trovata");
-		if(friendship.getUserToBeConfirmed().getId() != userId) {
+		if(!friendship.getUserToBeConfirmed().getId().equals(userId)) {
 			friendshipService.delete(friendship); //Se vuoi annullare una tua richiesta, questa viene eliminata
 		}else {
 			friendship.setStato(StatoAmicizia.RIFIUTATA); //se vuoi annullare la richiesta fatta a te, questa viene messa in stato rifiutato
@@ -183,6 +191,7 @@ public class UserService implements UserDetailsService {
 		
 	}
 
+	@Transactional
 	public void rimuoviAmico(Long userId, Long friendId) {
 		Friendship friendship = friendshipService.findFriendshipBetweenUsers(userId, friendId)
 				.orElseThrow(() -> new EntityNotFoundException("Amicizia non trovata"));
@@ -193,6 +202,7 @@ public class UserService implements UserDetailsService {
 		friendshipService.delete(friendship);
 	}
 
+	@Transactional(readOnly = true)
 	public List<User> getAmici(Long userId) {
 		return friendshipService.getFriendsOfUser(userId, StatoAmicizia.ACCETTATA);
 	}
