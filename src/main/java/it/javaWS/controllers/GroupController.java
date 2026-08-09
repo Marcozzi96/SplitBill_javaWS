@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -21,11 +22,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import it.javaWS.models.dto.GroupDTO;
+import it.javaWS.models.dto.GroupMemberDTO;
+import it.javaWS.models.dto.SettlementDTO;
 import it.javaWS.models.entities.Group;
 import it.javaWS.models.entities.User;
 import it.javaWS.services.FriendshipService;
 import it.javaWS.services.GroupService;
-import jakarta.persistence.EntityNotFoundException;
 
 @RestController
 @RequestMapping("/groups")
@@ -101,12 +103,12 @@ public class GroupController {
 		return ResponseEntity.ok(dto);
 	}
 
-	@Operation(summary = "Esci da un gruppo", description = "L'utente autenticato esce dal gruppo specificato")
-	@ApiResponses(value = { @ApiResponse(responseCode = "200", description = "Utente rimosso dal gruppo"),
+	@Operation(summary = "Esci da un gruppo", description = "L'utente autenticato esce dal gruppo specificato. Se è l'ultimo membro, il gruppo viene eliminato.")
+	@ApiResponses(value = { @ApiResponse(responseCode = "200", description = "Utente rimosso dal gruppo o gruppo eliminato"),
 			@ApiResponse(responseCode = "400", description = "Gruppo non trovato"),
 			@ApiResponse(responseCode = "401", description = "Accesso non autorizzato") })
 	@DeleteMapping("/leave/{groupId}")
-	public ResponseEntity<GroupDTO> leaveTheGroup(@AuthenticationPrincipal User user, @PathVariable Long groupId) {
+	public ResponseEntity<?> leaveTheGroup(@AuthenticationPrincipal User user, @PathVariable Long groupId) {
 		Long userId = user.getId();
 
 		Group group = groupService.getGroup(groupId);
@@ -116,11 +118,62 @@ public class GroupController {
 		userIds.add(userId);
 
 		Group updatedGroup = groupService.removeUsersFromGroup(groupId, userIds);
-		if (updatedGroup == null)
-			throw new EntityNotFoundException("Gruppo non trovato");
+		if (updatedGroup == null) {
+			return ResponseEntity.ok("Gruppo eliminato");
+		}
 
 		GroupDTO dto = new GroupDTO(updatedGroup).setUsers(groupService.getUsersInGroup(groupId));
 		return ResponseEntity.ok(dto);
+	}
+
+	@Operation(summary = "Lista membri attivi di un gruppo", description = "Restituisce i membri attivi del gruppo specificato")
+	@ApiResponses(value = { @ApiResponse(responseCode = "200", description = "Lista membri restituita"),
+			@ApiResponse(responseCode = "401", description = "Accesso non autorizzato"),
+			@ApiResponse(responseCode = "404", description = "Gruppo non trovato") })
+	@GetMapping("/{groupId}/members")
+	public ResponseEntity<List<GroupMemberDTO>> getGroupMembers(@AuthenticationPrincipal User user,
+			@PathVariable Long groupId) {
+		Group group = groupService.getGroup(groupId);
+		checkMembership(group, user.getId());
+		return ResponseEntity.ok(groupService.getActiveMembers(groupId));
+	}
+
+	@Operation(summary = "Modifica un gruppo", description = "Modifica nome e descrizione di un gruppo. Solo l'admin può eseguire questa operazione.")
+	@ApiResponses(value = { @ApiResponse(responseCode = "200", description = "Gruppo modificato con successo"),
+			@ApiResponse(responseCode = "401", description = "Accesso non autorizzato"),
+			@ApiResponse(responseCode = "403", description = "L'utente non è admin del gruppo"),
+			@ApiResponse(responseCode = "404", description = "Gruppo non trovato") })
+	@PutMapping("/{groupId}")
+	public ResponseEntity<GroupDTO> updateGroup(@AuthenticationPrincipal User user, @PathVariable Long groupId,
+			@RequestParam String name, @RequestParam(required = false) String description) {
+		Group updatedGroup = groupService.updateGroup(groupId, name, description, user.getId());
+		GroupDTO dto = new GroupDTO(updatedGroup);
+		dto.setUsers(groupService.getUsersInGroup(groupId));
+		return ResponseEntity.ok(dto);
+	}
+
+	@Operation(summary = "Stato dei debiti/crediti pendenti", description = "Restituisce l'elenco dei debiti/crediti pendenti tra i membri attivi del gruppo")
+	@ApiResponses(value = { @ApiResponse(responseCode = "200", description = "Stato restituito"),
+			@ApiResponse(responseCode = "401", description = "Accesso non autorizzato"),
+			@ApiResponse(responseCode = "404", description = "Gruppo non trovato") })
+	@GetMapping("/{groupId}/settlement-status")
+	public ResponseEntity<List<SettlementDTO>> getSettlementStatus(@AuthenticationPrincipal User user,
+			@PathVariable Long groupId) {
+		Group group = groupService.getGroup(groupId);
+		checkMembership(group, user.getId());
+		return ResponseEntity.ok(groupService.getGroupSettlementStatus(groupId));
+	}
+
+	@Operation(summary = "Elimina un gruppo", description = "Elimina un gruppo. Solo l'admin può eseguire questa operazione. Con force=false, l'operazione fallisce se esistono debiti/crediti pendenti.")
+	@ApiResponses(value = { @ApiResponse(responseCode = "200", description = "Gruppo eliminato con successo"),
+			@ApiResponse(responseCode = "401", description = "Accesso non autorizzato"),
+			@ApiResponse(responseCode = "403", description = "L'utente non è admin del gruppo"),
+			@ApiResponse(responseCode = "409", description = "Esistono debiti/crediti pendenti") })
+	@DeleteMapping("/{groupId}")
+	public ResponseEntity<String> deleteGroup(@AuthenticationPrincipal User user, @PathVariable Long groupId,
+			@RequestParam(defaultValue = "false") boolean force) {
+		groupService.deleteGroup(groupId, force, user.getId());
+		return ResponseEntity.ok("Gruppo eliminato");
 	}
 
 	private void checkMembership(Group group, Long userId) {

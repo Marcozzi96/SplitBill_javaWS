@@ -5,15 +5,20 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import it.javaWS.enums.StatoAmicizia;
+import it.javaWS.models.dto.UpdateUserRequest;
 import it.javaWS.models.entities.Friendship;
 import it.javaWS.models.entities.User;
 import it.javaWS.repositories.UserRepository;
+import it.javaWS.utils.DuplicateUserException;
+import it.javaWS.utils.InvalidCredentialsException;
 import jakarta.persistence.EntityNotFoundException;
 
 @Service
@@ -21,10 +26,12 @@ public class UserService implements UserDetailsService {
 
 	private final UserRepository userRepository;
 	private final FriendshipService friendshipService;
+	private final PasswordEncoder passwordEncoder;
 
-	public UserService(UserRepository userRepository, FriendshipService friendshipService) {
+	public UserService(UserRepository userRepository, FriendshipService friendshipService, PasswordEncoder passwordEncoder) {
 		this.userRepository = userRepository;
 		this.friendshipService = friendshipService;
+		this.passwordEncoder = passwordEncoder;
 	}
 
 	@Transactional
@@ -58,6 +65,33 @@ public class UserService implements UserDetailsService {
 		return userRepository.save(user);
 	}
 
+	@Transactional
+	public User updateUser(User user, UpdateUserRequest request) {
+		if (request.getOldPassword() == null || !passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+			throw new InvalidCredentialsException("Password non valida");
+		}
+
+		if (request.getEmail() != null && !request.getEmail().equalsIgnoreCase(user.getEmail())) {
+			if (!userRepository.findByEmailOrUsernameIgnoreCase(request.getEmail(), request.getEmail()).isEmpty()) {
+				throw new DuplicateUserException("Email già in uso");
+			}
+			user.setEmail(request.getEmail().toLowerCase());
+		}
+
+		if (request.getUsername() != null && !request.getUsername().equals(user.getUsername())) {
+			if (!userRepository.findByEmailOrUsernameIgnoreCase(request.getUsername(), request.getUsername()).isEmpty()) {
+				throw new DuplicateUserException("Username già in uso");
+			}
+			user.setUsername(request.getUsername());
+		}
+
+		if (request.getPassword() != null && !request.getPassword().isBlank()) {
+			user.setPassword(passwordEncoder.encode(request.getPassword()));
+		}
+
+		return userRepository.save(user);
+	}
+
 	@Override
 	@Transactional(readOnly = true)
 	public User loadUserByUsername(String username) throws UsernameNotFoundException {
@@ -69,7 +103,7 @@ public class UserService implements UserDetailsService {
 	public User loadUserByEmailOrUsername(String email, String username) {
 		Set<User> users = userRepository.findByEmailOrUsernameIgnoreCase(email, username);
 		if (users.size() != 1) {
-			throw new IllegalStateException("Credenziali non valide");
+			throw new BadCredentialsException("Credenziali non valide");
 		}
 
 		return users.stream().findFirst().get();
@@ -82,7 +116,7 @@ public class UserService implements UserDetailsService {
 
 	@Transactional(readOnly = true)
 	public Boolean existsByUsername(String username) {
-		return userRepository.existsByUsername(username);
+		return userRepository.existsByUsernameAndDeletedFalse(username);
 	}
 
 	@Transactional(readOnly = true)
@@ -110,7 +144,7 @@ public class UserService implements UserDetailsService {
 				} else if (existing.get().getStato().equals(StatoAmicizia.RIFIUTATA)) { // Devo aggiornare la riga
 																						// esistente
 					Friendship f = existing.get();
-					User userToBeConfirmed = userRepository.findById(f.getUserToBeConfirmed().getId().equals(userId) ? otherId : userId)
+					User userToBeConfirmed = userRepository.findById(otherId)
 							.orElseThrow(() -> new EntityNotFoundException("Utente non trovato"));
 					f.setUserToBeConfirmed(userToBeConfirmed); // cambiare l'utente che deve accettare
 					f.setStato(StatoAmicizia.IN_ATTESA); // Rimettere la richiesta in attesa

@@ -16,4 +16,4 @@ jwt:
   validity: ${JWT_VALIDITY:86400}
 
 app:
-  open-link: ${OPEN_LINK:http://localhost:3000}
+  open-link: ${OPEN_LINK:http://localhost:8080}

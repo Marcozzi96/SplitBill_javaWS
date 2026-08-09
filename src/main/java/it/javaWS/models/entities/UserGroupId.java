@@ -1,18 +1,22 @@
 package it.javaWS.models.entities;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.Objects;
 
 import jakarta.persistence.Embeddable;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @Embeddable
 public class UserGroupId implements Serializable {
 	
-	private static final long serialVersionUID = 4906061652309636187L;
+	@Serial
+    private static final long serialVersionUID = 4906061652309636187L;
 	
 	private Long userId;
     private Long groupId;
@@ -25,8 +29,7 @@ public class UserGroupId implements Serializable {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof UserGroupId)) return false;
-        UserGroupId that = (UserGroupId) o;
+        if (!(o instanceof UserGroupId that)) return false;
         return Objects.equals(userId, that.userId) &&
                Objects.equals(groupId, that.groupId);
     }

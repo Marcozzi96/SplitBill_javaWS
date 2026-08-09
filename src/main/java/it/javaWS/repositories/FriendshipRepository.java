@@ -18,15 +18,17 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
 
 	@Query("""
 			    SELECT f FROM Friendship f
-			    WHERE (f.user1.id = :userId AND f.user2.id = :otherId)
-			       OR (f.user2.id = :userId AND f.user1.id = :otherId)
+			    WHERE f.user1.deleted = false AND f.user2.deleted = false
+			      AND ((f.user1.id = :userId AND f.user2.id = :otherId)
+			       OR (f.user2.id = :userId AND f.user1.id = :otherId))
 			""")
 	Optional<Friendship> findBetweenUsers(@Param("userId") Long userId, @Param("otherId") Long otherId);
 
 	@Query("""
 			    SELECT COUNT(f) FROM Friendship f
-			    WHERE (f.user1.id = :userId AND f.user2.id IN :otherIds)
-			       OR (f.user2.id = :userId AND f.user1.id IN :otherIds)
+			    WHERE f.user1.deleted = false AND f.user2.deleted = false
+			      AND ((f.user1.id = :userId AND f.user2.id IN :otherIds)
+			       OR (f.user2.id = :userId AND f.user1.id IN :otherIds))
 			""")
 	long countFriendshipsWithUser(@Param("userId") Long userId, @Param("otherIds") Set<Long> otherIds);
 
@@ -34,19 +36,23 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
 			    SELECT f.user2
 			    FROM Friendship f
 			    WHERE f.user1.id = :userId
+			      AND f.user2.deleted = false
 			      AND f.stato = :statoEnum
 			    UNION
 			    SELECT f.user1
 			    FROM Friendship f
 			    WHERE f.user2.id = :userId
+			      AND f.user1.deleted = false
 			      AND f.stato = :statoEnum
 			""")
 	List<User> findFriendsOfUser(@Param("userId") Long userId, @Param("statoEnum") StatoAmicizia statoEnum);
 
 	@Query("""
 			    SELECT f FROM Friendship f
-			    WHERE (f.userToBeConfirmed.id = :userId)
-			AND f.stato = 'IN_ATTESA'
+			    WHERE f.userToBeConfirmed.id = :userId
+			      AND f.user1.deleted = false
+			      AND f.user2.deleted = false
+			      AND f.stato = 'IN_ATTESA'
 			""")
 	Set<Friendship> findRequestRecByUser(@Param("userId") Long userId);
 
@@ -56,6 +62,8 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
 		        (f.user1.id = :userId AND f.user1.id <> f.userToBeConfirmed.id)
 		        OR (f.user2.id = :userId AND f.user2.id <> f.userToBeConfirmed.id)
 		    )
+		    AND f.user1.deleted = false
+		    AND f.user2.deleted = false
 		    AND f.stato = 'IN_ATTESA'
 		""")
 		Set<Friendship> findRequestSenByUser(@Param("userId") Long userId);

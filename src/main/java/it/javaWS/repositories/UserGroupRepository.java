@@ -32,5 +32,8 @@ public interface UserGroupRepository extends JpaRepository<UserGroup, UserGroupI
     @Query("SELECT COUNT(ug) > 0 FROM UserGroup ug WHERE ug.group.id = :groupId AND ug.user.id = :userId AND ug.role = :role")
     boolean existsByGroupIdAndUserIdAndRole(@Param("groupId") Long groupId, @Param("userId") Long userId, @Param("role") GroupRole role);
 
+    @Query("SELECT ug FROM UserGroup ug WHERE ug.group.id = :groupId AND ug.dataUscita IS NULL")
+    List<UserGroup> findActiveByGroupId(@Param("groupId") Long groupId);
+
 
 }

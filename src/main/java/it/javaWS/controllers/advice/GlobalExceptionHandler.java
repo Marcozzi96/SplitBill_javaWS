@@ -10,7 +10,12 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import it.javaWS.utils.DuplicateUserException;
+import it.javaWS.utils.GroupNotFoundException;
 import it.javaWS.utils.InvalidBillException;
+import it.javaWS.utils.InvalidCredentialsException;
+import it.javaWS.utils.NotGroupAdminException;
+import it.javaWS.utils.PendingSettlementsException;
 import it.javaWS.utils.UnauthorizedAccessException;
 import jakarta.persistence.EntityNotFoundException;
 
@@ -45,6 +50,31 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidBillException.class)
     public ResponseEntity<Map<String, Object>> handleInvalidBill(InvalidBillException ex) {
         return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidCredentials(InvalidCredentialsException ex) {
+        return buildResponse(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
+    @ExceptionHandler(DuplicateUserException.class)
+    public ResponseEntity<Map<String, Object>> handleDuplicateUser(DuplicateUserException ex) {
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(GroupNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleGroupNotFound(GroupNotFoundException ex) {
+        return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(NotGroupAdminException.class)
+    public ResponseEntity<Map<String, Object>> handleNotGroupAdmin(NotGroupAdminException ex) {
+        return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    @ExceptionHandler(PendingSettlementsException.class)
+    public ResponseEntity<Map<String, Object>> handlePendingSettlements(PendingSettlementsException ex) {
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler(Exception.class)

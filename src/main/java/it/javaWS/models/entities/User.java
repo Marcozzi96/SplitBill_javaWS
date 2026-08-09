@@ -1,5 +1,6 @@
 package it.javaWS.models.entities;
 
+import java.io.Serial;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
@@ -27,7 +28,8 @@ import lombok.Setter;
 @Entity
 @Table(name = "users") // "user" è parola riservata in alcuni DB
 public class User implements UserDetails {
-	private static final long serialVersionUID = 9056374516475231401L;
+	@Serial
+    private static final long serialVersionUID = 9056374516475231401L;
 
 	@EqualsAndHashCode.Include
 	@Id
@@ -38,7 +40,7 @@ public class User implements UserDetails {
 	private String email;
 	private String password;
 	private LocalDate regDate;
-//    private Boolean deleted;
+    private boolean deleted = false;
 
 	@OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
 	private Set<UserGroup> userGroups;
@@ -67,14 +69,5 @@ public class User implements UserDetails {
     }
 
     @Override
-    public boolean isAccountNonExpired() { return true; }
-
-    @Override
-    public boolean isAccountNonLocked() { return true; }
-
-    @Override
-    public boolean isCredentialsNonExpired() { return true; }
-
-    @Override
-    public boolean isEnabled() { return true; }
+    public boolean isEnabled() { return !deleted; }
 }

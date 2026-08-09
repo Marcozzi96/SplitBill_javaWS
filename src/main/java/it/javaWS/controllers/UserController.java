@@ -5,7 +5,6 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,6 +21,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import it.javaWS.models.dto.AuthResponse;
 import it.javaWS.models.dto.FriendshipReqRecDTO;
 import it.javaWS.models.dto.FriendshipReqSenDTO;
+import it.javaWS.models.dto.UpdateUserRequest;
 import it.javaWS.models.dto.UserDTO;
 import it.javaWS.models.entities.User;
 import it.javaWS.services.UserService;
@@ -34,12 +34,10 @@ public class UserController {
 
 	private final UserService userService;
 	private final JwtUtil jwtUtil;
-	private final PasswordEncoder passwordEncoder;
 
-	public UserController(UserService userService, JwtUtil jwtUtil, PasswordEncoder passwordEncoder) {
+	public UserController(UserService userService, JwtUtil jwtUtil) {
 		this.userService = userService;
 		this.jwtUtil = jwtUtil;
-		this.passwordEncoder = passwordEncoder;
 	}
 
 	@Operation(summary = "Recupera le informazioni dell'utente autenticato")
@@ -55,18 +53,13 @@ public class UserController {
 	@Operation(summary = "Aggiorna le informazioni dell'utente autenticato")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "Utente aggiornato con successo"),
-		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
+		@ApiResponse(responseCode = "400", description = "Dati non validi"),
+		@ApiResponse(responseCode = "401", description = "Utente non autenticato o password errata"),
+		@ApiResponse(responseCode = "409", description = "Username o email già in uso")
 	})
 	@PutMapping("/update")
-	public ResponseEntity<AuthResponse> updateUser(@AuthenticationPrincipal User user, @RequestBody User updatedUser) {
-		if (updatedUser.getEmail() != null)
-			user.setEmail(updatedUser.getEmail().toLowerCase());
-		if (updatedUser.getUsername() != null)
-			user.setUsername(updatedUser.getUsername());
-		if (updatedUser.getPassword() != null) {
-			user.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
-		}
-		User updated = userService.updateUser(user);
+	public ResponseEntity<AuthResponse> updateUser(@AuthenticationPrincipal User user, @RequestBody UpdateUserRequest request) {
+		User updated = userService.updateUser(user, request);
 		String newToken = jwtUtil.generateToken(updated);
 		return ResponseEntity.ok(new AuthResponse(newToken, new UserDTO(updated)));
 	}
@@ -82,6 +75,7 @@ public class UserController {
 		user.setEmail("utente." + user.getId() + LocalDate.now() + "@eliminato");
 		user.setUsername("UtenteEliminato" + user.getId() + LocalDate.now());
 		user.setPassword("UtenteEliminato" + user.getId() + LocalDate.now());
+		user.setDeleted(true);
 
 		userService.updateUser(user);
 		return ResponseEntity.ok("Success");
