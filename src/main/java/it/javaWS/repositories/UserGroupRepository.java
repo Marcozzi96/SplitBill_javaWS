@@ -4,12 +4,15 @@ import java.util.List;
 import java.util.Set;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import it.javaWS.models.entities.Group;
 import it.javaWS.models.entities.User;
 import it.javaWS.models.entities.UserGroup;
 import it.javaWS.models.entities.UserGroupId;
+import it.javaWS.models.enums.GroupRole;
 
 @Repository
 public interface UserGroupRepository extends JpaRepository<UserGroup, UserGroupId> {
@@ -25,6 +28,9 @@ public interface UserGroupRepository extends JpaRepository<UserGroup, UserGroupI
     boolean existsByGroupIdAndUserId(Long groupId, Long userId);
     
     List<UserGroup> findByGroupId(Long groupId);
-    
-    
+
+    @Query("SELECT COUNT(ug) > 0 FROM UserGroup ug WHERE ug.group.id = :groupId AND ug.user.id = :userId AND ug.role = :role")
+    boolean existsByGroupIdAndUserIdAndRole(@Param("groupId") Long groupId, @Param("userId") Long userId, @Param("role") GroupRole role);
+
+
 }

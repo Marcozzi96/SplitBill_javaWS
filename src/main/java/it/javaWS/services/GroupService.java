@@ -14,6 +14,7 @@ import it.javaWS.models.entities.Group;
 import it.javaWS.models.entities.User;
 import it.javaWS.models.entities.UserGroup;
 import it.javaWS.models.entities.UserGroupId;
+import it.javaWS.models.enums.GroupRole;
 import it.javaWS.repositories.GroupRepository;
 import it.javaWS.repositories.UserGroupRepository;
 import it.javaWS.repositories.UserRepository;
@@ -34,12 +35,10 @@ public class GroupService {
 	}
 
 	@Transactional
-	public Group createGroup(String name, String description, Set<Long> userIds) {
+	public Group createGroup(String name, String description, Set<Long> userIds, Long creatorId) {
 
 		// 1. Recupera gli utenti
 		Set<User> users = new HashSet<>(userRepository.findAllById(userIds));
-		
-		
 
 		// 2. Crea il gruppo
 		Group group = new Group();
@@ -55,6 +54,9 @@ public class GroupService {
 			userGroup.setGroup(group);
 			userGroup.setDataIngresso(LocalDate.now());
 			userGroup.setDataUscita(null); // ancora attivo
+			if (user.getId().equals(creatorId)) {
+				userGroup.setRole(GroupRole.ADMIN);
+			}
 			// Imposta esplicitamente l'id altrimenti il Set crede siano tutti elementi
 			// uguali
 			userGroup.setId(new UserGroupId(user.getId(), null)); // group.getId() ancora null
@@ -187,6 +189,11 @@ public class GroupService {
     @Transactional(readOnly = true)
     public boolean existsByGroupIdAndUserId(Long groupId, Long userId) {
         return userGroupRepository.existsByGroupIdAndUserId(groupId, userId);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isUserAdminOfGroup(Long groupId, Long userId) {
+        return userGroupRepository.existsByGroupIdAndUserIdAndRole(groupId, userId, GroupRole.ADMIN);
     }
 
     @Transactional(readOnly = true)

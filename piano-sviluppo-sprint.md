@@ -28,29 +28,34 @@ Le seguenti scelte sono state confermate dal committente e vincolano il piano:
 
 ### Task
 
-- [ ] Aggiungere controlli di ownership/autorizzazione:
+- [x] Aggiungere controlli di ownership/autorizzazione:
   - `DELETE /bills/{id}`: consentito solo al buyer della spesa o all'admin del gruppo.
   - `DELETE /transactions/{id}`: consentito solo al buyer della spesa correlata o all'admin del gruppo.
   - `GET /balance/{userId}`: consentito solo se `userId` corrisponde all'utente autenticato.
-- [ ] Rivedere `BillService.createBill`:
+- [x] Rivedere `BillService.createBill`:
   - consentire al buyer tra i debitori;
   - validare che `sum(usersDebit.values()) == amount` con `BigDecimal.compareTo`;
   - generare le `Transaction` coerentemente (buyer riceve credito solo per la parte effettivamente prestata agli altri).
-- [ ] Sostituire `System.out.println` in `SuspiciousRequestFilter` con logger SLF4J.
-- [ ] Aggiungere eccezioni dedicate per errori di autorizzazione/validazione e mapparle in `GlobalExceptionHandler`.
-- [ ] Aggiornare Swagger con le nuove risposte di errore.
+- [x] Sostituire `System.out.println` in `SuspiciousRequestFilter` con logger SLF4J.
+- [x] Aggiungere eccezioni dedicate per errori di autorizzazione/validazione e mapparle in `GlobalExceptionHandler`.
+- [x] Aggiornare Swagger con le nuove risposte di errore.
+- [x] **Prerequisito ruolo admin spostato nello Sprint 1**: aggiungere `GroupRole` su `UserGroup` e assegnare `ADMIN` al creatore del gruppo in `GroupService.createGroup`.
+- [x] Correggere i metodi HTTP degli endpoint amicizie: `sendFriendshipRequest` deve usare `POST`, `acceptFriendship` e `refuseFriendship` devono usare `PUT` (`cancelFriendship` resta `DELETE`).
+- [x] Tipizzare i ritorni `ResponseEntity<?>` in `UserController` e `GroupController` usando DTO concreti.
 
 ### Test
 
-- [ ] Test di unità per `BillService.createBill` (caso buyer debitore, somma errata, amount negativo).
-- [ ] Test di integrazione per `BillController` (delete non autorizzato, creazione con somma errata).
-- [ ] Test di integrazione per `BalanceController` (accesso al proprio bilancio vs bilancio altrui).
+- [x] Test di unità per `BillService.createBill` (caso buyer debitore, somma errata, amount negativo).
+- [x] Test di integrazione per `BillController` (delete non autorizzato, creazione con somma errata).
+- [x] Test di integrazione per `BalanceController` (accesso al proprio bilancio vs bilancio altrui).
+- [x] Test di integrazione per `TransactionController` (delete con autorizzazione buyer/admin).
+- [x] Test di unità per `GroupService.createGroup` (ruolo ADMIN al creatore).
 
 ### Definition of Done
 
-- `mvn clean verify` passa.
-- I test coprono almeno il 70% delle righe modificate.
-- Swagger riflette le nuove regole di autorizzazione.
+- [x] `mvn clean verify` passa.
+- [x] I test coprono almeno il 70% delle righe modificate (classi interessate dalle modifiche: `BillService`, `TransactionController`, `BalanceController`, `GlobalExceptionHandler`, `SuspiciousRequestFilter`, `UserGroup` > 70%; `BillController` e `GroupService` risentono di codice preesistente non modificato).
+- [x] Swagger riflette le nuove regole di autorizzazione.
 
 ---
 
@@ -60,8 +65,8 @@ Le seguenti scelte sono state confermate dal committente e vincolano il piano:
 
 ### Task
 
-- [ ] Estendere `UserGroup` con un campo `role` (es. `MEMBER`, `ADMIN`).
-- [ ] Assegnare `ADMIN` al creatore del gruppo in `GroupService.createGroup`.
+- [x] ~~Estendere `UserGroup` con un campo `role` (es. `MEMBER`, `ADMIN`)~~ — realizzato nello Sprint 1.
+- [x] ~~Assegnare `ADMIN` al creatore del gruppo in `GroupService.createGroup`~~ — realizzato nello Sprint 1.
 - [ ] Modificare `GroupService.removeUsersFromGroup`:
   - non eseguire più `DELETE` fisico;
   - popolare `dataUscita = LocalDate.now()`;
@@ -80,6 +85,9 @@ Le seguenti scelte sono state confermate dal committente e vincolano il piano:
   - escludere utenti cancellati da ricerche, liste amici e gruppi attivi;
   - preservare bill e transaction (non cascade delete).
 - [ ] Aggiornare `UserRepository` e `FriendshipRepository` per filtrare utenti `deleted=false`.
+- [ ] Aggiungere validazione a `PUT /user/update`: richiedere la vecchia password e controllare che il nuovo username/email non siano già in uso da altri utenti.
+- [ ] Rimuovere `@Data` da `UserGroupId` e sostituirlo con `@Getter`/`@Setter`/`@NoArgsConstructor`.
+- [ ] Aggiungere `FetchType.LAZY` esplicito sulle associazioni `@ManyToOne` di `UserGroup`, `Bill`, `Transaction` e `Friendship`.
 
 ### Test
 
@@ -164,6 +172,8 @@ Aggregando per coppia (A, B), si ottiene l'importo netto che A deve a B (positiv
   - i rimborsi devono influenzare il calcolo "chi deve a chi".
 - [ ] Aggiornare `BalanceService` per tenere conto dei rimborsi nei settlement.
 - [ ] Aggiungere validazione: un rimborso non può superare il debito effettivo tra due utenti.
+- [ ] Refactor dei service per non esporre più entità JPA ai controller: restituire DTO dedicati invece di `Bill`, `Group`, `Transaction`, `User`.
+- [ ] Introduzione eccezioni di dominio dedicate per entità non trovata (es. `BillNotFoundException`, `GroupNotFoundException`) e mapparle in `GlobalExceptionHandler`.
 
 ### Test
 
@@ -190,6 +200,8 @@ Aggregando per coppia (A, B), si ottiene l'importo netto che A deve a B (positiv
   - endpoint `POST /auth/resetPassword` con token;
   - token di reset opaco e a breve scadenza, salvato su DB.
 - [ ] Rimuovere la password dal token di conferma registrazione (sostituire con token opaco).
+- [ ] Decodificare la chiave JWT da Base64 in `JwtUtil` e caricarla da variabile d'ambiente.
+- [ ] Rimuovere il default hardcoded di `JWT_SECRET` da `application-dev.yml` (rendere la variabile d'ambiente obbligatoria o generarla in modo sicuro in locale).
 - [ ] Aggiungere rate limiting sugli endpoint di autenticazione.
 - [ ] Revisone delle configurazioni di produzione (`application-prod.yml`, variabili d'ambiente).
 - [ ] Aggiornare `README.md` e documentazione Swagger con le nuove API.

@@ -1,12 +1,14 @@
 package it.javaWS.controllers;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -92,8 +94,8 @@ public class UserController {
 		@ApiResponse(responseCode = "400", description = "Errore nella richiesta"),
 		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
 	})
-	@GetMapping("/sendFriendshipRequest")
-	public ResponseEntity<?> sendFriendshipRequest(@AuthenticationPrincipal User user, @RequestParam String name,
+	@PostMapping("/sendFriendshipRequest")
+	public ResponseEntity<String> sendFriendshipRequest(@AuthenticationPrincipal User user, @RequestParam String name,
 			@RequestParam String message) throws Exception {
 		Long userId = userService.loadUserByEmailOrUsername(name, name).getId();
 		userService.inviaRichiestaAmicizia(user.getId(), userId, message);
@@ -106,7 +108,7 @@ public class UserController {
 		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
 	})
 	@GetMapping("/getFriendshipReqReceived")
-	public ResponseEntity<?> getFriendshipReqRec(@AuthenticationPrincipal User user) {
+	public ResponseEntity<List<FriendshipReqRecDTO>> getFriendshipReqRec(@AuthenticationPrincipal User user) {
 		return ResponseEntity.ok(userService.getRichiesteAmiciziaRicevute(user.getId()).stream()
 				.map(FriendshipReqRecDTO::new).toList());
 	}
@@ -117,7 +119,7 @@ public class UserController {
 		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
 	})
 	@GetMapping("/getFriendshipReqSent")
-	public ResponseEntity<?> getFriendshipReqSen(@AuthenticationPrincipal User user) {
+	public ResponseEntity<List<FriendshipReqSenDTO>> getFriendshipReqSen(@AuthenticationPrincipal User user) {
 		return ResponseEntity.ok(userService.getRichiesteAmiciziaInviate(user.getId()).stream()
 				.map(FriendshipReqSenDTO::new).toList());
 	}
@@ -128,7 +130,7 @@ public class UserController {
 		@ApiResponse(responseCode = "400", description = "Richiesta non valida"),
 		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
 	})
-	@GetMapping("/acceptFriendship")
+	@PutMapping("/acceptFriendship")
 	public ResponseEntity<String> acceptFriendship(@AuthenticationPrincipal User user, @RequestParam Long friendId) {
 		userService.accettaRichiestaAmicizia(user.getId(), friendId);
 		return ResponseEntity.ok("Richiesta di amicizia accettata");
@@ -140,7 +142,7 @@ public class UserController {
 		@ApiResponse(responseCode = "400", description = "Errore durante il rifiuto"),
 		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
 	})
-	@GetMapping("/refuseFriendship")
+	@PutMapping("/refuseFriendship")
 	public ResponseEntity<String> refuseFriendship(@AuthenticationPrincipal User user, @RequestParam Long friendId) {
 		userService.rifiutaRichiestaAmicizia(user.getId(), friendId);
 		return ResponseEntity.ok("Richiesta di amicizia rifiutata");
@@ -164,7 +166,7 @@ public class UserController {
 		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
 	})
 	@GetMapping("/getFriends")
-	public ResponseEntity<?> getFriends(@AuthenticationPrincipal User user) {
+	public ResponseEntity<List<UserDTO>> getFriends(@AuthenticationPrincipal User user) {
 		return ResponseEntity.ok(userService.getAmici(user.getId()).stream().map(UserDTO::new).toList());
 	}
 }

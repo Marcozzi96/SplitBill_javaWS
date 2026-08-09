@@ -4,6 +4,8 @@ package it.javaWS.filters;
 
 import java.io.IOException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import jakarta.servlet.Filter;
@@ -17,6 +19,8 @@ import jakarta.servlet.http.HttpServletResponse;
 @Component
 public class SuspiciousRequestFilter implements Filter {
 
+    private static final Logger logger = LoggerFactory.getLogger(SuspiciousRequestFilter.class);
+
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
@@ -26,7 +30,7 @@ public class SuspiciousRequestFilter implements Filter {
 
         // Verifica presenza di pattern sospetti
         if (uri.matches(".*\\$\\{jndi:.*") || uri.contains("MDEDiscovery")) {
-            System.out.println("[- Sicurezza -] : Bloccata richiesta sospetta: " + uri);
+            logger.info("[- Sicurezza -] : Bloccata richiesta sospetta");
             ((HttpServletResponse) response).sendError(HttpServletResponse.SC_BAD_REQUEST, "Richiesta sospetta bloccata.");
             return;
         }

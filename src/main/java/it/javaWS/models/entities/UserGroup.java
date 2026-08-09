@@ -4,12 +4,15 @@ import java.time.LocalDate;
 
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.MapsId;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import it.javaWS.models.enums.GroupRole;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -39,7 +42,10 @@ public class UserGroup {
 
     private LocalDate dataIngresso;
     private LocalDate dataUscita;
-    
+
+    @Enumerated(EnumType.STRING)
+    private GroupRole role = GroupRole.MEMBER;
+
     @PrePersist
     @PreUpdate
     private void updateEmbeddedId() {

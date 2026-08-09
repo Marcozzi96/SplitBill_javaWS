@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import it.javaWS.models.entities.Transaction;
 import it.javaWS.repositories.TransactionRepository;
+import jakarta.persistence.EntityNotFoundException;
 
 @Service
 public class TransactionService {
@@ -14,6 +15,12 @@ public class TransactionService {
 	public TransactionService(TransactionRepository transactionRepository) {
 		this.transactionRepository = transactionRepository;
 		
+	}
+
+	@Transactional(readOnly = true)
+	public Transaction getTransaction(Long id) {
+		return transactionRepository.findById(id)
+				.orElseThrow(() -> new EntityNotFoundException("Transazione non trovata"));
 	}
 	
 	@Transactional

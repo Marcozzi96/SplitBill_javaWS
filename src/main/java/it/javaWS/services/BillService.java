@@ -15,6 +15,7 @@ import it.javaWS.models.entities.Transaction;
 import it.javaWS.models.entities.User;
 import it.javaWS.repositories.BillRepository;
 import it.javaWS.repositories.TransactionRepository;
+import it.javaWS.utils.InvalidBillException;
 
 @Service
 public class BillService {
@@ -29,9 +30,23 @@ public class BillService {
     
     @Transactional
     public Bill createBill(String description, BigDecimal amount, String notes,
-    		User buyer, Group group, Map<User, BigDecimal> usersDebit) {
-    	
-    	
+            User buyer, Group group, Map<User, BigDecimal> usersDebit) {
+
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidBillException("L'importo della spesa deve essere positivo");
+        }
+
+        if (usersDebit == null || usersDebit.isEmpty()) {
+            throw new InvalidBillException("La mappa dei debiti non può essere vuota");
+        }
+
+        BigDecimal totalDebit = usersDebit.values().stream()
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (amount.compareTo(totalDebit) != 0) {
+            throw new InvalidBillException("La somma dei debiti (" + totalDebit
+                    + ") non corrisponde all'importo totale (" + amount + ")");
+        }
+
         Bill bill = new Bill();
         bill.setDescription(description);
         bill.setAmount(amount);
@@ -41,32 +56,31 @@ public class BillService {
         bill.setGroup(group);
 
         Bill savedBill = billRepository.save(bill);
-
-        // Equa divisione della spesa tra gli utenti del gruppo
-        //List<User> groupUsers = new ArrayList<>(groupService.getUsersInGroup(groupId));
-        
-        BigDecimal a = new BigDecimal(0);
         savedBill.setTransactions(new LinkedList<>());
-        
+
+        // Il credito del buyer è uguale alla somma dei debiti degli altri partecipanti.
+        // Se il buyer è anche debitore, il proprio debito riduce il credito in modo implicito.
+        BigDecimal buyerCredit = BigDecimal.ZERO;
         for (User user : usersDebit.keySet()) {
             if (!user.getId().equals(buyer.getId())) {
                 Transaction t = new Transaction();
                 t.setUser(user);
                 t.setBill(savedBill);
                 t.setGroup(group);
-                t.setAmount((usersDebit.get(user).multiply(new BigDecimal(-1)))); 
-                a = a.add(usersDebit.get(user));
+                BigDecimal debit = usersDebit.get(user);
+                t.setAmount(debit.negate());
+                buyerCredit = buyerCredit.add(debit);
                 savedBill.getTransactions().add(transactionRepository.save(t));
             }
         }
-        Transaction t = new Transaction();
-        
-        t.setUser(buyer);
-        t.setBill(savedBill);
-        t.setGroup(group);
-        t.setAmount(a); //devo mettere quanto ha prestato
-        savedBill.getTransactions().add(transactionRepository.save(t));
-        
+
+        Transaction buyerTransaction = new Transaction();
+        buyerTransaction.setUser(buyer);
+        buyerTransaction.setBill(savedBill);
+        buyerTransaction.setGroup(group);
+        buyerTransaction.setAmount(buyerCredit);
+        savedBill.getTransactions().add(transactionRepository.save(buyerTransaction));
+
         return savedBill;
     }
 
@@ -88,6 +102,12 @@ public class BillService {
     @Transactional(readOnly = true)
     public List<Bill> getBillsByUserId(Long userId) {
         return billRepository.findBillsByUserIdThroughTransactions(userId);
+    }
+
+    @Transactional(readOnly = true)
+    public Bill getBill(Long id) {
+        return billRepository.findById(id)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Spesa non trovata"));
     }
 
     @Transactional

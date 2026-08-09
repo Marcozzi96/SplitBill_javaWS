@@ -1,6 +1,7 @@
 package it.javaWS.controllers;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.springframework.http.ResponseEntity;
@@ -51,7 +52,7 @@ public class GroupController {
 			throw new IllegalArgumentException("Alcuni utenti non sono tuoi amici");
 		}
 		userIds.add(userId);
-		Group group = groupService.createGroup(name, description, userIds);
+		Group group = groupService.createGroup(name, description, userIds, userId);
 		GroupDTO dto = new GroupDTO(group);
 		dto.setUsers(groupService.getUsersInGroup(group.getId()));
 		return ResponseEntity.ok(dto);
@@ -73,7 +74,7 @@ public class GroupController {
 	@Operation(summary = "Lista gruppi dell'utente", description = "Restituisce tutti i gruppi a cui l'utente autenticato appartiene")
 	@ApiResponse(responseCode = "200", description = "Lista dei gruppi restituita")
 	@GetMapping("")
-	public ResponseEntity<?> getGroupsByUser(@AuthenticationPrincipal User user) {
+	public ResponseEntity<List<GroupDTO>> getGroupsByUser(@AuthenticationPrincipal User user) {
 		return ResponseEntity.ok(groupService.getGroupsByUserId(user.getId()).stream().map(GroupDTO::new).toList());
 	}
 

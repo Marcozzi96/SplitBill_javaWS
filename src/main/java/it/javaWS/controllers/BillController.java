@@ -20,6 +20,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import it.javaWS.models.dto.BillDTO;
 import it.javaWS.models.dto.TransactionDTO;
@@ -30,6 +33,7 @@ import it.javaWS.models.entities.UserGroup;
 import it.javaWS.services.BillService;
 import it.javaWS.services.GroupService;
 import it.javaWS.services.UserService;
+import it.javaWS.utils.UnauthorizedAccessException;
 
 @RestController
 @RequestMapping("/bills")
@@ -46,6 +50,11 @@ public class BillController {
 		this.groupService = groupService;
 	}
 
+	@Operation(summary = "Crea una nuova spesa", description = "Crea una spesa con suddivisione personalizzata dei debiti. La somma dei debiti deve essere esattamente uguale all'importo totale.")
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Spesa creata con successo"),
+			@ApiResponse(responseCode = "400", description = "Dati non validi (importo negativo o somma debiti diversa dall'importo)"),
+			@ApiResponse(responseCode = "401", description = "Accesso non autorizzato") })
 	@PostMapping("/new")
 	public ResponseEntity<BillDTO> createBill(@AuthenticationPrincipal User user, @RequestParam String description,
 			@RequestParam BigDecimal amount, @RequestParam String notes, @RequestParam Long groupId,
@@ -123,8 +132,19 @@ public class BillController {
 		return ResponseEntity.ok(dtoList);
 	}
 
+	@Operation(summary = "Elimina una spesa", description = "Consente l'eliminazione solo al buyer della spesa o all'admin del gruppo")
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Spesa eliminata"),
+			@ApiResponse(responseCode = "401", description = "Non autorizzato"),
+			@ApiResponse(responseCode = "404", description = "Spesa non trovata") })
 	@DeleteMapping("/{id}")
-	public ResponseEntity<Void> deleteBill(@PathVariable Long id) {
+	public ResponseEntity<Void> deleteBill(@AuthenticationPrincipal User user, @PathVariable Long id) {
+		Bill bill = billService.getBill(id);
+		boolean isBuyer = bill.getBuyer().getId().equals(user.getId());
+		boolean isAdmin = groupService.isUserAdminOfGroup(bill.getGroup().getId(), user.getId());
+		if (!isBuyer && !isAdmin) {
+			throw new UnauthorizedAccessException("Non sei autorizzato a eliminare questa spesa");
+		}
 		billService.deleteBill(id);
 		return ResponseEntity.ok().build();
 	}
