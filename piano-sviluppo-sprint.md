@@ -1,7 +1,7 @@
 # Piano di sviluppo SplitBill Backend — Suddivisione per sprint
 
 > Basato sulle risposte alle domande aperte dell'analisi funzionale (`analisi-funzionale.md`).
-> Ultimo aggiornamento: 2026-07-31
+> Ultimo aggiornamento: 2026-08-11
 
 ---
 
@@ -67,40 +67,40 @@ Le seguenti scelte sono state confermate dal committente e vincolano il piano:
 
 - [x] ~~Estendere `UserGroup` con un campo `role` (es. `MEMBER`, `ADMIN`)~~ — realizzato nello Sprint 1.
 - [x] ~~Assegnare `ADMIN` al creatore del gruppo in `GroupService.createGroup`~~ — realizzato nello Sprint 1.
-- [ ] Modificare `GroupService.removeUsersFromGroup`:
+- [x] Modificare `GroupService.removeUsersFromGroup`:
   - non eseguire più `DELETE` fisico;
   - popolare `dataUscita = LocalDate.now()`;
   - se l'utente che esce è l'ultimo membro attivo, eliminare il gruppo;
   - se l'utente che esce è admin, promuovere un altro membro attivo a admin (o impedire l'uscita se non viene designato un successore).
-- [ ] Aggiungere endpoint `GET /groups/{groupId}/settlement-status` per ottenere lo stato dei debiti/crediti pendenti tra i membri attivi (utile al FE per mostrare il popup di conferma eliminazione).
-- [ ] Aggiungere endpoint `DELETE /groups/{groupId}` per eliminazione gruppo (solo admin) con parametro `force`:
+- [x] Aggiungere endpoint `GET /groups/{groupId}/settlement-status` per ottenere lo stato dei debiti/crediti pendenti tra i membri attivi (utile al FE per mostrare il popup di conferma eliminazione).
+- [x] Aggiungere endpoint `DELETE /groups/{groupId}` per eliminazione gruppo (solo admin) con parametro `force`:
   - `force=false` (default): se esistono debiti/crediti pendenti nel gruppo, restituire `409 Conflict` con l'elenco dei debiti pendenti; se non ce ne sono, procedere con l'eliminazione.
   - `force=true`: l'utente conferma di aver pareggiato le spese; eliminare fisicamente il gruppo, tutte le `Bill`, tutte le `Transaction` e tutte le `UserGroup` associate.
-- [ ] Aggiungere endpoint `PUT /groups/{groupId}` per modifica nome/descrizione (solo admin).
-- [ ] Aggiungere endpoint `GET /groups/{groupId}/members` per lista membri attivi.
-- [ ] Implementare soft delete utente:
+- [x] Aggiungere endpoint `PUT /groups/{groupId}` per modifica nome/descrizione (solo admin).
+- [x] Aggiungere endpoint `GET /groups/{groupId}/members` per lista membri attivi.
+- [x] Implementare soft delete utente:
   - aggiungere flag `deleted` su `User`;
   - anonimizzare `username`, `email`, `password`;
   - impedire login di utenti cancellati;
   - escludere utenti cancellati da ricerche, liste amici e gruppi attivi;
   - preservare bill e transaction (non cascade delete).
-- [ ] Aggiornare `UserRepository` e `FriendshipRepository` per filtrare utenti `deleted=false`.
-- [ ] Aggiungere validazione a `PUT /user/update`: richiedere la vecchia password e controllare che il nuovo username/email non siano già in uso da altri utenti.
-- [ ] Rimuovere `@Data` da `UserGroupId` e sostituirlo con `@Getter`/`@Setter`/`@NoArgsConstructor`.
-- [ ] Aggiungere `FetchType.LAZY` esplicito sulle associazioni `@ManyToOne` di `UserGroup`, `Bill`, `Transaction` e `Friendship`.
+- [x] Aggiornare `UserRepository` e `FriendshipRepository` per filtrare utenti `deleted=false`.
+- [x] Aggiungere validazione a `PUT /user/update`: richiedere la vecchia password e controllare che il nuovo username/email non siano già in uso da altri utenti.
+- [x] Rimuovere `@Data` da `UserGroupId` e sostituirlo con `@Getter`/`@Setter`/`@NoArgsConstructor`.
+- [x] Aggiungere `FetchType.LAZY` esplicito sulle associazioni `@ManyToOne` di `UserGroup`, `Bill`, `Transaction` e `Friendship`.
 
 ### Test
 
-- [ ] Test di unità per `GroupService` (uscita ultimo membro, promozione admin, modifica gruppo, eliminazione con e senza debiti pendenti).
-- [ ] Test di integrazione per `GroupController` (solo admin elimina/modifica, uscita soft, blocco eliminazione con debiti pendenti).
-- [ ] Test di integrazione per `UserController.deleteUser` (login bloccato, dati storici preservati).
+- [x] Test di unità per `GroupService` (uscita ultimo membro, promozione admin, modifica gruppo, eliminazione con e senza debiti pendenti).
+- [x] Test di integrazione per `GroupController` (solo admin elimina/modifica, uscita soft, blocco eliminazione con debiti pendenti).
+- [x] Test di integrazione per `UserController.deleteUser` (login bloccato, dati storici preservati).
 
 ### Definition of Done
 
-- Gruppi vuoti non persistono.
-- Solo admin può eliminare/modificare un gruppo.
-- L'eliminazione di un gruppo con debiti pendenti viene bloccata a meno che non venga forzata esplicitamente, e in tal caso vengono eliminate anche spese e transazioni.
-- Utente cancellato non può loggarsi, ma le spese storiche rimangono consultabili.
+- [x] Gruppi vuoti non persistono.
+- [x] Solo admin può eliminare/modificare un gruppo.
+- [x] L'eliminazione di un gruppo con debiti pendenti viene bloccata a meno che non venga forzata esplicitamente, e in tal caso vengono eliminate anche spese e transazioni.
+- [x] Utente cancellato non può loggarsi, ma le spese storiche rimangono consultabili.
 
 ---
 
@@ -110,21 +110,22 @@ Le seguenti scelte sono state confermate dal committente e vincolano il piano:
 
 ### Task
 
-- [ ] Rivedere `BalanceService`:
+- [x] Rivedere `BalanceService`:
   - separare semanticamente `totalPaid` (quanto l'utente ha pagato) e `totalOwed` (quanto l'utente deve agli altri);
   - `netBalance = totalPaid - totalOwed` deve avere significato coerente.
-- [ ] Endpoint saldo globale personale:
+  - *Approccio implementativo*: tabella riepilogo (`UserBalance`, `UserGroupBalance`, `PairwiseSettlement`) aggiornata ad ogni spesa/eliminazione per garantire letture O(1).
+- [x] Endpoint saldo globale personale:
   - `GET /balance/me` (solo utente autenticato).
-- [ ] Endpoint saldo per gruppo:
+- [x] Endpoint saldo per gruppo:
   - `GET /groups/{groupId}/balance` (solo membri del gruppo, restituisce saldo dell'utente autenticato all'interno del gruppo).
-- [ ] Endpoint "chi deve a chi" globale:
+- [x] Endpoint "chi deve a chi" globale:
   - `GET /balance/settlements`;
   - restituisce, per l'utente autenticato, l'elenco degli altri utenti con cui ha un debito/credito e l'importo.
-- [ ] Endpoint "chi deve a chi" per gruppo:
+- [x] Endpoint "chi deve a chi" per gruppo:
   - `GET /groups/{groupId}/settlements`;
   - restituisce solo i debiti/crediti dell'utente autenticato verso gli altri membri del gruppo.
-- [ ] Creare DTO dedicati per i settlement (`SettlementDTO` con `counterparty`, `amount`, `direction`).
-- [ ] Assicurarsi che un utente non possa vedere i settlement tra altri utenti.
+- [x] Creare DTO dedicati per i settlement (`UserSettlementDTO` con `counterparty`, `amount`, `direction`).
+- [x] Assicurarsi che un utente non possa vedere i settlement tra altri utenti.
 
 ### Algoritmo di calcolo "chi deve a chi"
 
@@ -138,15 +139,15 @@ Aggregando per coppia (A, B), si ottiene l'importo netto che A deve a B (positiv
 
 ### Test
 
-- [ ] Test di unità per `BalanceService` con scenari multi-spesa e multi-gruppo.
-- [ ] Test di integrazione per i nuovi endpoint, con verifica privacy.
+- [x] Test di unità per `BalanceService` con scenari multi-spesa e multi-gruppo.
+- [x] Test di integrazione per i nuovi endpoint, con verifica privacy.
 - [ ] Test per verificare che i totali tornino dopo rimborsi futuri (preparazione al prossimo sprint).
 
 ### Definition of Done
 
-- I saldi sono calcolati correttamente in tutti gli scenari di test.
-- Un utente vede solo i propri dati e i debiti verso sé stesso.
-- Documentazione Swagger aggiornata.
+- [x] I saldi sono calcolati correttamente in tutti gli scenari di test.
+- [x] Un utente vede solo i propri dati e i debiti verso sé stesso.
+- [x] Documentazione Swagger aggiornata.
 
 ---
 

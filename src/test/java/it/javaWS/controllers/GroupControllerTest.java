@@ -34,6 +34,7 @@ import it.javaWS.repositories.GroupRepository;
 import it.javaWS.repositories.TransactionRepository;
 import it.javaWS.repositories.UserGroupRepository;
 import it.javaWS.repositories.UserRepository;
+import it.javaWS.services.BalanceService;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -61,6 +62,9 @@ class GroupControllerTest {
 
     @Autowired
     private FriendshipRepository friendshipRepository;
+
+    @Autowired
+    private BalanceService balanceService;
 
     @Test
     void getGroupMembers_asMember_returnsOk() throws Exception {
@@ -166,6 +170,71 @@ class GroupControllerTest {
 
         mockMvc.perform(delete("/groups/{groupId}", group.getId())
                         .with(user(member)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getMyGroupBalance_asMember_returnsBalance() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User debtor = createUser("debtor", "debtor@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, debtor, GroupRole.MEMBER);
+        createBillWithBalance(group, buyer, debtor, new BigDecimal("100"));
+
+        mockMvc.perform(get("/groups/{groupId}/balance", group.getId())
+                        .with(user(buyer)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalPaid").value(100))
+                .andExpect(jsonPath("$.totalOwed").value(0))
+                .andExpect(jsonPath("$.netBalance").value(100));
+
+        mockMvc.perform(get("/groups/{groupId}/balance", group.getId())
+                        .with(user(debtor)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalPaid").value(0))
+                .andExpect(jsonPath("$.totalOwed").value(100))
+                .andExpect(jsonPath("$.netBalance").value(-100));
+    }
+
+    @Test
+    void getMyGroupBalance_asNonMember_returnsForbidden() throws Exception {
+        User member = createUser("member", "member@example.com");
+        User outsider = createUser("outsider", "outsider@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, member, GroupRole.MEMBER);
+
+        mockMvc.perform(get("/groups/{groupId}/balance", group.getId())
+                        .with(user(outsider)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getMyGroupSettlements_asMember_returnsSettlements() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User debtor = createUser("debtor", "debtor@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, debtor, GroupRole.MEMBER);
+        createBillWithBalance(group, buyer, debtor, new BigDecimal("100"));
+
+        mockMvc.perform(get("/groups/{groupId}/settlements", group.getId())
+                        .with(user(buyer)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].counterparty.userId").value(debtor.getId()))
+                .andExpect(jsonPath("$[0].amount").value(100))
+                .andExpect(jsonPath("$[0].direction").value("CREDIT"));
+    }
+
+    @Test
+    void getMyGroupSettlements_asNonMember_returnsForbidden() throws Exception {
+        User member = createUser("member", "member@example.com");
+        User outsider = createUser("outsider", "outsider@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, member, GroupRole.MEMBER);
+
+        mockMvc.perform(get("/groups/{groupId}/settlements", group.getId())
+                        .with(user(outsider)))
                 .andExpect(status().isForbidden());
     }
 
@@ -326,5 +395,10 @@ class GroupControllerTest {
         transactionRepository.save(debtorTransaction);
 
         return bill;
+    }
+
+    private void createBillWithBalance(Group group, User buyer, User debtor, BigDecimal amount) {
+        Bill bill = createBill(group, buyer, debtor, amount);
+        balanceService.applyBill(bill);
     }
 }

@@ -41,15 +41,17 @@ public class GroupService {
 	private final UserGroupRepository userGroupRepository;
 	private final BillRepository billRepository;
 	private final TransactionRepository transactionRepository;
+	private final BalanceService balanceService;
 
 	public GroupService(GroupRepository groupRepository, UserRepository userRepository,
 			UserGroupRepository userGroupRepository, BillRepository billRepository,
-			TransactionRepository transactionRepository) {
+			TransactionRepository transactionRepository, BalanceService balanceService) {
 		this.groupRepository = groupRepository;
 		this.userRepository = userRepository;
 		this.userGroupRepository = userGroupRepository;
 		this.billRepository = billRepository;
 		this.transactionRepository = transactionRepository;
+		this.balanceService = balanceService;
 	}
 
 	@Transactional
@@ -171,6 +173,7 @@ public class GroupService {
 	}
 
 	private void deleteGroupWithContent(Group group) {
+		balanceService.revertGroupBalances(group);
 		List<Bill> bills = billRepository.findByGroupId(group.getId());
 		for (Bill bill : bills) {
 			List<Transaction> transactions = transactionRepository.findByBill_Id(bill.getId());

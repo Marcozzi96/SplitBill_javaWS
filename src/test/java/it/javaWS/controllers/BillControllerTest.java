@@ -31,6 +31,7 @@ import it.javaWS.repositories.GroupRepository;
 import it.javaWS.repositories.TransactionRepository;
 import it.javaWS.repositories.UserGroupRepository;
 import it.javaWS.repositories.UserRepository;
+import it.javaWS.services.BalanceService;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -58,6 +59,9 @@ class BillControllerTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private BalanceService balanceService;
 
     @Test
     void deleteBill_asBuyer_returnsOk() throws Exception {
@@ -247,6 +251,8 @@ class BillControllerTest {
         debtorTransaction.setGroup(group);
         debtorTransaction.setAmount(amount.negate());
         transactionRepository.save(debtorTransaction);
+
+        balanceService.applyBill(bill);
 
         return bill;
     }

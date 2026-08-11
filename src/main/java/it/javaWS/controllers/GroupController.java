@@ -24,8 +24,11 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import it.javaWS.models.dto.GroupDTO;
 import it.javaWS.models.dto.GroupMemberDTO;
 import it.javaWS.models.dto.SettlementDTO;
+import it.javaWS.models.dto.UserBalanceDTO;
+import it.javaWS.models.dto.UserSettlementDTO;
 import it.javaWS.models.entities.Group;
 import it.javaWS.models.entities.User;
+import it.javaWS.services.BalanceService;
 import it.javaWS.services.FriendshipService;
 import it.javaWS.services.GroupService;
 
@@ -36,10 +39,13 @@ public class GroupController {
 
 	private final GroupService groupService;
 	private final FriendshipService friendshipService;
+	private final BalanceService balanceService;
 
-	public GroupController(GroupService groupService, FriendshipService friendshipService) {
+	public GroupController(GroupService groupService, FriendshipService friendshipService,
+			BalanceService balanceService) {
 		this.groupService = groupService;
 		this.friendshipService = friendshipService;
+		this.balanceService = balanceService;
 	}
 
 	@Operation(summary = "Crea un nuovo gruppo", description = "Crea un gruppo e aggiunge gli utenti specificati (incluso il creator)")
@@ -162,6 +168,30 @@ public class GroupController {
 		Group group = groupService.getGroup(groupId);
 		checkMembership(group, user.getId());
 		return ResponseEntity.ok(groupService.getGroupSettlementStatus(groupId));
+	}
+
+	@Operation(summary = "Recupera il proprio saldo nel gruppo", description = "Restituisce il saldo dell'utente autenticato all'interno del gruppo")
+	@ApiResponses(value = { @ApiResponse(responseCode = "200", description = "Saldo restituito"),
+			@ApiResponse(responseCode = "403", description = "L'utente non fa parte del gruppo"),
+			@ApiResponse(responseCode = "404", description = "Gruppo non trovato") })
+	@GetMapping("/{groupId}/balance")
+	public ResponseEntity<UserBalanceDTO> getMyGroupBalance(@AuthenticationPrincipal User user,
+			@PathVariable Long groupId) {
+		Group group = groupService.getGroup(groupId);
+		checkMembership(group, user.getId());
+		return ResponseEntity.ok(balanceService.getDetailedGroupBalance(user.getId(), groupId));
+	}
+
+	@Operation(summary = "Recupera i propri settlement nel gruppo", description = "Restituisce l'elenco di chi deve a chi dal punto di vista dell'utente autenticato all'interno del gruppo")
+	@ApiResponses(value = { @ApiResponse(responseCode = "200", description = "Settlement restituiti"),
+			@ApiResponse(responseCode = "403", description = "L'utente non fa parte del gruppo"),
+			@ApiResponse(responseCode = "404", description = "Gruppo non trovato") })
+	@GetMapping("/{groupId}/settlements")
+	public ResponseEntity<List<UserSettlementDTO>> getMyGroupSettlements(@AuthenticationPrincipal User user,
+			@PathVariable Long groupId) {
+		Group group = groupService.getGroup(groupId);
+		checkMembership(group, user.getId());
+		return ResponseEntity.ok(balanceService.getUserGroupSettlements(user.getId(), groupId));
 	}
 
 	@Operation(summary = "Elimina un gruppo", description = "Elimina un gruppo. Solo l'admin può eseguire questa operazione. Con force=false, l'operazione fallisce se esistono debiti/crediti pendenti.")

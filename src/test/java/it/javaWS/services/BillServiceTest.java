@@ -3,6 +3,7 @@ package it.javaWS.services;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -31,6 +32,9 @@ class BillServiceTest {
 
     @Mock
     private TransactionRepository transactionRepository;
+
+    @Mock
+    private BalanceService balanceService;
 
     @InjectMocks
     private BillService billService;
@@ -70,6 +74,7 @@ class BillServiceTest {
                 .anyMatch(t -> t.getUser().getId().equals(1L) && t.getAmount().compareTo(new BigDecimal("100")) == 0)
                 .anyMatch(t -> t.getUser().getId().equals(2L) && t.getAmount().compareTo(new BigDecimal("-40")) == 0)
                 .anyMatch(t -> t.getUser().getId().equals(3L) && t.getAmount().compareTo(new BigDecimal("-60")) == 0);
+        verify(balanceService).applyBill(bill);
     }
 
     @Test
@@ -93,6 +98,7 @@ class BillServiceTest {
                 .anyMatch(t -> t.getUser().getId().equals(1L) && t.getAmount().compareTo(new BigDecimal("70")) == 0)
                 .anyMatch(t -> t.getUser().getId().equals(2L) && t.getAmount().compareTo(new BigDecimal("-40")) == 0)
                 .anyMatch(t -> t.getUser().getId().equals(3L) && t.getAmount().compareTo(new BigDecimal("-30")) == 0);
+        verify(balanceService).applyBill(bill);
     }
 
     @Test

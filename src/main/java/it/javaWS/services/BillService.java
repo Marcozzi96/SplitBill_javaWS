@@ -20,12 +20,15 @@ import it.javaWS.utils.InvalidBillException;
 @Service
 public class BillService {
 
-    private final BillRepository billRepository;//
+    private final BillRepository billRepository;
     private final TransactionRepository transactionRepository;
+    private final BalanceService balanceService;
 
-    public BillService(BillRepository billRepository, TransactionRepository transactionRepository) {
+    public BillService(BillRepository billRepository, TransactionRepository transactionRepository,
+            BalanceService balanceService) {
         this.billRepository = billRepository;
         this.transactionRepository = transactionRepository;
+        this.balanceService = balanceService;
     }
     
     @Transactional
@@ -81,6 +84,8 @@ public class BillService {
         buyerTransaction.setAmount(buyerCredit);
         savedBill.getTransactions().add(transactionRepository.save(buyerTransaction));
 
+        balanceService.applyBill(savedBill);
+
         return savedBill;
     }
 
@@ -112,7 +117,11 @@ public class BillService {
 
     @Transactional
     public void deleteBill(Long id) {
-        billRepository.deleteById(id);
+        Bill bill = billRepository.findById(id)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Spesa non trovata"));
+        balanceService.revertBill(bill);
+        transactionRepository.deleteAll(transactionRepository.findByBill_Id(bill.getId()));
+        billRepository.delete(bill);
     }
 
     @Transactional

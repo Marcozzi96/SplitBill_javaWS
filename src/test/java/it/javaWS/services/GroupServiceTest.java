@@ -55,6 +55,9 @@ class GroupServiceTest {
     @Mock
     private TransactionRepository transactionRepository;
 
+    @Mock
+    private BalanceService balanceService;
+
     @InjectMocks
     private GroupService groupService;
 
