@@ -3,9 +3,10 @@ package it.javaWS.services;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import it.javaWS.models.dto.TransactionDTO;
 import it.javaWS.models.entities.Transaction;
 import it.javaWS.repositories.TransactionRepository;
-import jakarta.persistence.EntityNotFoundException;
+import it.javaWS.utils.TransactionNotFoundException;
 
 @Service
 public class TransactionService {
@@ -20,7 +21,12 @@ public class TransactionService {
 	@Transactional(readOnly = true)
 	public Transaction getTransaction(Long id) {
 		return transactionRepository.findById(id)
-				.orElseThrow(() -> new EntityNotFoundException("Transazione non trovata"));
+				.orElseThrow(() -> new TransactionNotFoundException("Transazione non trovata"));
+	}
+
+	@Transactional(readOnly = true)
+	public TransactionDTO getTransactionDto(Long id) {
+		return new TransactionDTO(getTransaction(id));
 	}
 	
 	@Transactional

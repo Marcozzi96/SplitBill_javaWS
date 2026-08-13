@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -57,6 +59,15 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
 	Set<Friendship> findRequestRecByUser(@Param("userId") Long userId);
 
 	@Query("""
+			    SELECT f FROM Friendship f
+			    WHERE f.userToBeConfirmed.id = :userId
+			      AND f.user1.deleted = false
+			      AND f.user2.deleted = false
+			      AND f.stato = 'IN_ATTESA'
+			""")
+	Page<Friendship> findRequestRecByUser(@Param("userId") Long userId, Pageable pageable);
+
+	@Query("""
 		    SELECT f FROM Friendship f
 		    WHERE (
 		        (f.user1.id = :userId AND f.user1.id <> f.userToBeConfirmed.id)
@@ -66,7 +77,27 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
 		    AND f.user2.deleted = false
 		    AND f.stato = 'IN_ATTESA'
 		""")
-		Set<Friendship> findRequestSenByUser(@Param("userId") Long userId);
+	Set<Friendship> findRequestSenByUser(@Param("userId") Long userId);
 
+	@Query("""
+		    SELECT f FROM Friendship f
+		    WHERE (
+		        (f.user1.id = :userId AND f.user1.id <> f.userToBeConfirmed.id)
+		        OR (f.user2.id = :userId AND f.user2.id <> f.userToBeConfirmed.id)
+		    )
+		    AND f.user1.deleted = false
+		    AND f.user2.deleted = false
+		    AND f.stato = 'IN_ATTESA'
+		""")
+	Page<Friendship> findRequestSenByUser(@Param("userId") Long userId, Pageable pageable);
+
+	@Query("""
+			    SELECT COUNT(f) FROM Friendship f
+			    WHERE f.userToBeConfirmed.id = :userId
+			      AND f.user1.deleted = false
+			      AND f.user2.deleted = false
+			      AND f.stato = 'IN_ATTESA'
+			""")
+	long countPendingReceivedRequests(@Param("userId") Long userId);
 
 }

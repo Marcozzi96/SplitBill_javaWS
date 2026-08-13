@@ -13,6 +13,8 @@ public interface PairwiseSettlementRepository extends JpaRepository<PairwiseSett
 
     Optional<PairwiseSettlement> findByDebtorIdAndCreditorIdAndGroupId(Long debtorId, Long creditorId, Long groupId);
 
+    Optional<PairwiseSettlement> findByDebtorIdAndCreditorIdAndGroupIdIsNull(Long debtorId, Long creditorId);
+
     List<PairwiseSettlement> findByDebtorIdAndGroupId(Long debtorId, Long groupId);
 
     List<PairwiseSettlement> findByCreditorIdAndGroupId(Long creditorId, Long groupId);

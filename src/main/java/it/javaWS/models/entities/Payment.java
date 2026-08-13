@@ -1,6 +1,7 @@
 package it.javaWS.models.entities;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -10,7 +11,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -21,10 +21,8 @@ import lombok.Setter;
 @NoArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Entity
-@Table(name = "pairwise_settlements", uniqueConstraints = {
-        @UniqueConstraint(columnNames = { "debtor_id", "creditor_id", "group_id" })
-})
-public class PairwiseSettlement {
+@Table(name = "payments")
+public class Payment {
 
     @EqualsAndHashCode.Include
     @Id
@@ -32,16 +30,20 @@ public class PairwiseSettlement {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "debtor_id", nullable = false)
-    private User debtor;
+    @JoinColumn(name = "payer_id", nullable = false)
+    private User payer;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "creditor_id", nullable = false)
-    private User creditor;
+    @JoinColumn(name = "payee_id", nullable = false)
+    private User payee;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "group_id")
     private Group group;
 
-    private BigDecimal amount = BigDecimal.ZERO;
+    private BigDecimal amount;
+
+    private LocalDate date;
+
+    private String notes;
 }

@@ -1,8 +1,11 @@
 package it.javaWS.controllers;
 
 import java.time.LocalDate;
-import java.util.List;
+import java.util.Map;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -96,26 +99,40 @@ public class UserController {
 		return ResponseEntity.ok("Richiesta inviata");
 	}
 
-	@Operation(summary = "Recupera le richieste di amicizia ricevute")
+	@Operation(summary = "Recupera le richieste di amicizia ricevute", description = "Restituisce le richieste ricevute con paginazione")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "Richieste ricevute recuperate"),
 		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
 	})
 	@GetMapping("/getFriendshipReqReceived")
-	public ResponseEntity<List<FriendshipReqRecDTO>> getFriendshipReqRec(@AuthenticationPrincipal User user) {
-		return ResponseEntity.ok(userService.getRichiesteAmiciziaRicevute(user.getId()).stream()
-				.map(FriendshipReqRecDTO::new).toList());
+	public ResponseEntity<Page<FriendshipReqRecDTO>> getFriendshipReqRec(@AuthenticationPrincipal User user,
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "20") int size) {
+		Pageable pageable = PageRequest.of(page, size);
+		return ResponseEntity.ok(userService.getRichiesteAmiciziaRicevuteDto(user.getId(), pageable));
 	}
 
-	@Operation(summary = "Recupera le richieste di amicizia inviate")
+	@Operation(summary = "Recupera le richieste di amicizia inviate", description = "Restituisce le richieste inviate con paginazione")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "Richieste inviate recuperate"),
 		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
 	})
 	@GetMapping("/getFriendshipReqSent")
-	public ResponseEntity<List<FriendshipReqSenDTO>> getFriendshipReqSen(@AuthenticationPrincipal User user) {
-		return ResponseEntity.ok(userService.getRichiesteAmiciziaInviate(user.getId()).stream()
-				.map(FriendshipReqSenDTO::new).toList());
+	public ResponseEntity<Page<FriendshipReqSenDTO>> getFriendshipReqSen(@AuthenticationPrincipal User user,
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "20") int size) {
+		Pageable pageable = PageRequest.of(page, size);
+		return ResponseEntity.ok(userService.getRichiesteAmiciziaInviateDto(user.getId(), pageable));
+	}
+
+	@Operation(summary = "Conta le richieste di amicizia ricevute in attesa")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "Conteggio restituito"),
+		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
+	})
+	@GetMapping("/friendshipRequests/count")
+	public ResponseEntity<Map<String, Long>> getFriendshipRequestsCount(@AuthenticationPrincipal User user) {
+		return ResponseEntity.ok(Map.of("count", userService.countRichiesteAmiciziaRicevute(user.getId())));
 	}
 
 	@Operation(summary = "Accetta una richiesta di amicizia")
@@ -154,13 +171,16 @@ public class UserController {
 		return ResponseEntity.ok("Amicizia annullata");
 	}
 
-	@Operation(summary = "Recupera la lista degli amici dell'utente")
+	@Operation(summary = "Recupera la lista degli amici dell'utente", description = "Restituisce gli amici con paginazione")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "Lista amici recuperata"),
 		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
 	})
 	@GetMapping("/getFriends")
-	public ResponseEntity<List<UserDTO>> getFriends(@AuthenticationPrincipal User user) {
-		return ResponseEntity.ok(userService.getAmici(user.getId()).stream().map(UserDTO::new).toList());
+	public ResponseEntity<Page<UserDTO>> getFriends(@AuthenticationPrincipal User user,
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "20") int size) {
+		Pageable pageable = PageRequest.of(page, size);
+		return ResponseEntity.ok(userService.getAmiciDto(user.getId(), pageable));
 	}
 }

@@ -1,7 +1,7 @@
 # Piano di sviluppo SplitBill Backend — Suddivisione per sprint
 
 > Basato sulle risposte alle domande aperte dell'analisi funzionale (`analisi-funzionale.md`).
-> Ultimo aggiornamento: 2026-08-11
+> Ultimo aggiornamento: 2026-08-13
 
 ---
 
@@ -157,36 +157,38 @@ Aggregando per coppia (A, B), si ottiene l'importo netto che A deve a B (positiv
 
 ### Task
 
-- [ ] Aggiungere paginazione su:
+- [x] Aggiungere paginazione su:
   - `GET /groups` (gruppi dell'utente);
   - `GET /bills/group/{groupId}` (spese di un gruppo);
   - `GET /bills/getMyBills`;
   - `GET /user/getFriends`;
   - richieste di amicizia ricevute/inviate.
-- [ ] Aggiungere endpoint per conteggio richieste di amicizia in attesa:
+- [x] Aggiungere endpoint per conteggio richieste di amicizia in attesa:
   - `GET /user/friendshipRequests/count`.
-- [ ] Aggiungere endpoint per modifica spesa (`PUT /bills/{id}`), con le stesse validazioni della creazione e solo per buyer/admin.
-- [ ] Aggiungere entità `Payment` (rimborso tra due utenti, eventualmente in un gruppo):
+- [x] Aggiungere endpoint per modifica spesa (`PUT /bills/{id}`), con le stesse validazioni della creazione e solo per buyer/admin.
+- [x] Aggiungere entità `Payment` (rimborso tra due utenti, eventualmente in un gruppo):
   - campi: `id`, `payer`, `payee`, `amount`, `group` (opzionale), `date`, `notes`;
   - endpoint `POST /payments` per registrare un rimborso;
   - endpoint `GET /payments` per la cronologia dei propri rimborsi;
   - i rimborsi devono influenzare il calcolo "chi deve a chi".
-- [ ] Aggiornare `BalanceService` per tenere conto dei rimborsi nei settlement.
-- [ ] Aggiungere validazione: un rimborso non può superare il debito effettivo tra due utenti.
-- [ ] Refactor dei service per non esporre più entità JPA ai controller: restituire DTO dedicati invece di `Bill`, `Group`, `Transaction`, `User`.
-- [ ] Introduzione eccezioni di dominio dedicate per entità non trovata (es. `BillNotFoundException`, `GroupNotFoundException`) e mapparle in `GlobalExceptionHandler`.
+- [x] Aggiornare `BalanceService` per tenere conto dei rimborsi nei settlement.
+- [x] Aggiungere validazione: un rimborso non può superare il debito effettivo tra due utenti.
+- [x] Refactor dei service per non esporre più entità JPA ai controller: restituire DTO dedicati invece di `Bill`, `Group`, `Transaction`, `User`.
+- [x] Introduzione eccezioni di dominio dedicate per entità non trovata (es. `BillNotFoundException`, `GroupNotFoundException`) e mapparle in `GlobalExceptionHandler`.
 
 ### Test
 
-- [ ] Test di integrazione per paginazione.
-- [ ] Test di unità/integrazione per i rimborsi e il loro impatto sui bilanci.
-- [ ] Test end-to-end di uno scenario completo: registrazione → amicizia → gruppo → spesa → saldi → rimborso.
+- [x] Test di integrazione per paginazione.
+- [x] Test di unità/integrazione per i rimborsi e il loro impatto sui bilanci.
+- [x] Test end-to-end di uno scenario completo: registrazione → amicizia → gruppo → spesa → saldi → rimborso.
 
 ### Definition of Done
 
-- Tutti gli endpoint esposti sono documentati in Swagger.
-- `mvn clean verify` passa con almeno il 60% di coverage complessiva.
-- Il flusso end-to-end è testato automaticamente.
+- [x] Tutti gli endpoint esposti sono documentati in Swagger.
+- [x] `mvn clean verify` passa con almeno il 60% di coverage complessiva.
+- [x] Il flusso end-to-end è testato automaticamente.
+
+> Completato il 2026-08-13: 160 test passati, coverage 84% istruzioni / 68% branch.
 
 ---
 
@@ -228,3 +230,4 @@ Aggregando per coppia (A, B), si ottiene l'importo netto che A deve a B (positiv
 - Ogni task deve essere implementato con il minimo cambiamento necessario, rispettando `agent.md`.
 - Aggiornare questo file durante lo sprint barrando i task completati.
 - Non iniziare lo Sprint 5 prima che il MVP (Sprint 1-4) sia stabile e testato.
+- MVP (Sprint 1-4) completato e testato in data 2026-08-13.

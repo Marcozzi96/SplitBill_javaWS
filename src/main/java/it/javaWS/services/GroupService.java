@@ -11,9 +11,13 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import it.javaWS.models.dto.GroupDTO;
 import it.javaWS.models.dto.GroupMemberDTO;
 import it.javaWS.models.dto.SettlementDTO;
 import it.javaWS.models.dto.UserDTO;
@@ -32,6 +36,7 @@ import it.javaWS.repositories.UserRepository;
 import it.javaWS.utils.GroupNotFoundException;
 import it.javaWS.utils.NotGroupAdminException;
 import it.javaWS.utils.PendingSettlementsException;
+import it.javaWS.utils.UserNotFoundException;
 
 @Service
 public class GroupService {
@@ -92,10 +97,32 @@ public class GroupService {
 		return group;
 	}
 
+	@Transactional
+	public GroupDTO createGroupDto(String name, String description, Set<Long> userIds, Long creatorId) {
+		Group group = createGroup(name, description, userIds, creatorId);
+		GroupDTO dto = new GroupDTO(group);
+		dto.setUsers(getUsersInGroup(group.getId()));
+		return dto;
+	}
+
 	@Transactional(readOnly = true)
 	public Group getGroup(Long id) {
 		Optional<Group> groupOpt = groupRepository.findById(id);
 		return groupOpt.orElse(null);
+	}
+
+	@Transactional(readOnly = true)
+	public GroupDTO getGroupDto(Long groupId, Long requestingUserId) {
+		Group group = getGroup(groupId);
+		if (group == null) {
+			throw new GroupNotFoundException("Gruppo non trovato");
+		}
+		if (!existsByGroupIdAndUserId(groupId, requestingUserId)) {
+			throw new org.springframework.security.access.AccessDeniedException("L'utente non fa parte del gruppo richiesto");
+		}
+		GroupDTO dto = new GroupDTO(group);
+		dto.setUsers(getUsersInGroup(groupId));
+		return dto;
 	}
 
 	@Transactional
@@ -136,6 +163,18 @@ public class GroupService {
 	}
 
 	@Transactional
+	public GroupDTO addUsersToGroupDto(Long groupId, Set<Long> userIds, Long requestingUserId) {
+		Group group = getGroup(groupId);
+		if (group == null || !existsByGroupIdAndUserId(groupId, requestingUserId)) {
+			throw new GroupNotFoundException("Gruppo non trovato");
+		}
+		Group updatedGroup = addUsersToGroup(group, userIds);
+		GroupDTO dto = new GroupDTO(updatedGroup);
+		dto.setUsers(getUsersInGroup(groupId));
+		return dto;
+	}
+
+	@Transactional
 	public Group removeUsersFromGroup(Long groupId, Set<Long> userIds) {
 
 		Optional<Group> groupOpt = groupRepository.findById(groupId);
@@ -172,6 +211,21 @@ public class GroupService {
 		return groupRepository.findById(groupId).orElseThrow();
 	}
 
+	@Transactional
+	public GroupDTO removeUsersFromGroupDto(Long groupId, Set<Long> userIds, Long requestingUserId) {
+		Group group = getGroup(groupId);
+		if (group == null || !existsByGroupIdAndUserId(groupId, requestingUserId)) {
+			throw new GroupNotFoundException("Gruppo non trovato");
+		}
+		Group updatedGroup = removeUsersFromGroup(groupId, userIds);
+		if (updatedGroup == null) {
+			return null;
+		}
+		GroupDTO dto = new GroupDTO(updatedGroup);
+		dto.setUsers(getUsersInGroup(groupId));
+		return dto;
+	}
+
 	private void deleteGroupWithContent(Group group) {
 		balanceService.revertGroupBalances(group);
 		List<Bill> bills = billRepository.findByGroupId(group.getId());
@@ -188,6 +242,15 @@ public class GroupService {
 	@Transactional(readOnly = true)
 	public List<Group> getGroupsByUserId(Long userId) {
 		return groupRepository.getGroupsByUserId(userId);
+	}
+
+	@Transactional(readOnly = true)
+	public Page<GroupDTO> getGroupsByUserIdDto(Long userId, Pageable pageable) {
+		Page<Group> groups = groupRepository.getGroupsByUserId(userId, pageable);
+		List<GroupDTO> dtos = groups.getContent().stream()
+				.map(g -> new GroupDTO(g).setUsers(getUsersInGroup(g.getId())))
+				.toList();
+		return new PageImpl<>(dtos, pageable, groups.getTotalElements());
 	}
 
 	@Transactional
@@ -210,9 +273,16 @@ public class GroupService {
 	            .map(UserGroup::getUser)
 	            .collect(Collectors.toSet());
 	}
+
+	@Transactional(readOnly = true)
+	public Set<UserDTO> getUsersInGroupDto(Long groupId) {
+		return getUsersInGroup(groupId).stream()
+				.map(UserDTO::new)
+				.collect(Collectors.toSet());
+	}
 	
 	@Transactional(readOnly = true)
-	public Set<UserGroup> getUserGroup(Long groupId, Set<Long> userIds){
+    public Set<UserGroup> getUserGroup(Long groupId, Set<Long> userIds){
 		return userGroupRepository.findByGroup_IdAndUser_IdIn(groupId, userIds);
 	}
 
@@ -293,6 +363,14 @@ public class GroupService {
         }
 
         return groupRepository.save(group);
+    }
+
+    @Transactional
+    public GroupDTO updateGroupDto(Long groupId, String name, String description, Long userId) {
+    	Group updatedGroup = updateGroup(groupId, name, description, userId);
+    	GroupDTO dto = new GroupDTO(updatedGroup);
+    	dto.setUsers(getUsersInGroup(groupId));
+    	return dto;
     }
 
     @Transactional(readOnly = true)

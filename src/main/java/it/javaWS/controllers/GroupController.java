@@ -4,8 +4,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,7 +28,6 @@ import it.javaWS.models.dto.GroupMemberDTO;
 import it.javaWS.models.dto.SettlementDTO;
 import it.javaWS.models.dto.UserBalanceDTO;
 import it.javaWS.models.dto.UserSettlementDTO;
-import it.javaWS.models.entities.Group;
 import it.javaWS.models.entities.User;
 import it.javaWS.services.BalanceService;
 import it.javaWS.services.FriendshipService;
@@ -60,10 +61,7 @@ public class GroupController {
 			throw new IllegalArgumentException("Alcuni utenti non sono tuoi amici");
 		}
 		userIds.add(userId);
-		Group group = groupService.createGroup(name, description, userIds, userId);
-		GroupDTO dto = new GroupDTO(group);
-		dto.setUsers(groupService.getUsersInGroup(group.getId()));
-		return ResponseEntity.ok(dto);
+		return ResponseEntity.ok(groupService.createGroupDto(name, description, userIds, userId));
 	}
 
 	@Operation(summary = "Recupera un gruppo", description = "Restituisce i dettagli del gruppo specificato se l'utente ne fa parte")
@@ -71,19 +69,17 @@ public class GroupController {
 			@ApiResponse(responseCode = "401", description = "Accesso non autorizzato") })
 	@GetMapping("/{groupId}")
 	public ResponseEntity<GroupDTO> getGroup(@AuthenticationPrincipal User user, @PathVariable Long groupId) {
-		Group group = groupService.getGroup(groupId);
-		checkMembership(group, user.getId());
-
-		GroupDTO dto = new GroupDTO(group);
-		dto.setUsers(groupService.getUsersInGroup(groupId));
-		return ResponseEntity.ok(dto);
+		return ResponseEntity.ok(groupService.getGroupDto(groupId, user.getId()));
 	}
 
-	@Operation(summary = "Lista gruppi dell'utente", description = "Restituisce tutti i gruppi a cui l'utente autenticato appartiene")
+	@Operation(summary = "Lista gruppi dell'utente", description = "Restituisce i gruppi a cui l'utente autenticato appartiene, con paginazione")
 	@ApiResponse(responseCode = "200", description = "Lista dei gruppi restituita")
 	@GetMapping("")
-	public ResponseEntity<List<GroupDTO>> getGroupsByUser(@AuthenticationPrincipal User user) {
-		return ResponseEntity.ok(groupService.getGroupsByUserId(user.getId()).stream().map(GroupDTO::new).toList());
+	public ResponseEntity<Page<GroupDTO>> getGroupsByUser(@AuthenticationPrincipal User user,
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "20") int size) {
+		Pageable pageable = PageRequest.of(page, size);
+		return ResponseEntity.ok(groupService.getGroupsByUserIdDto(user.getId(), pageable));
 	}
 
 	@Operation(summary = "Aggiungi utenti a un gruppo", description = "Aggiunge una lista di utenti a un gruppo esistente, se l'utente autenticato ne fa parte")
@@ -98,15 +94,7 @@ public class GroupController {
 		}
 
 		userIds.add(userId);
-
-		Group group = groupService.getGroup(groupId);
-		checkMembership(group, userId);
-
-		Group updatedGroup = groupService.addUsersToGroup(group, userIds);
-		GroupDTO dto = new GroupDTO(updatedGroup);
-		dto.setUsers(groupService.getUsersInGroup(groupId));
-
-		return ResponseEntity.ok(dto);
+		return ResponseEntity.ok(groupService.addUsersToGroupDto(groupId, userIds, userId));
 	}
 
 	@Operation(summary = "Esci da un gruppo", description = "L'utente autenticato esce dal gruppo specificato. Se è l'ultimo membro, il gruppo viene eliminato.")
@@ -117,19 +105,15 @@ public class GroupController {
 	public ResponseEntity<?> leaveTheGroup(@AuthenticationPrincipal User user, @PathVariable Long groupId) {
 		Long userId = user.getId();
 
-		Group group = groupService.getGroup(groupId);
-		checkMembership(group, userId);
-
 		Set<Long> userIds = new HashSet<>();
 		userIds.add(userId);
 
-		Group updatedGroup = groupService.removeUsersFromGroup(groupId, userIds);
+		GroupDTO updatedGroup = groupService.removeUsersFromGroupDto(groupId, userIds, userId);
 		if (updatedGroup == null) {
 			return ResponseEntity.ok("Gruppo eliminato");
 		}
 
-		GroupDTO dto = new GroupDTO(updatedGroup).setUsers(groupService.getUsersInGroup(groupId));
-		return ResponseEntity.ok(dto);
+		return ResponseEntity.ok(updatedGroup);
 	}
 
 	@Operation(summary = "Lista membri attivi di un gruppo", description = "Restituisce i membri attivi del gruppo specificato")
@@ -139,8 +123,7 @@ public class GroupController {
 	@GetMapping("/{groupId}/members")
 	public ResponseEntity<List<GroupMemberDTO>> getGroupMembers(@AuthenticationPrincipal User user,
 			@PathVariable Long groupId) {
-		Group group = groupService.getGroup(groupId);
-		checkMembership(group, user.getId());
+		groupService.getGroupDto(groupId, user.getId());
 		return ResponseEntity.ok(groupService.getActiveMembers(groupId));
 	}
 
@@ -152,10 +135,7 @@ public class GroupController {
 	@PutMapping("/{groupId}")
 	public ResponseEntity<GroupDTO> updateGroup(@AuthenticationPrincipal User user, @PathVariable Long groupId,
 			@RequestParam String name, @RequestParam(required = false) String description) {
-		Group updatedGroup = groupService.updateGroup(groupId, name, description, user.getId());
-		GroupDTO dto = new GroupDTO(updatedGroup);
-		dto.setUsers(groupService.getUsersInGroup(groupId));
-		return ResponseEntity.ok(dto);
+		return ResponseEntity.ok(groupService.updateGroupDto(groupId, name, description, user.getId()));
 	}
 
 	@Operation(summary = "Stato dei debiti/crediti pendenti", description = "Restituisce l'elenco dei debiti/crediti pendenti tra i membri attivi del gruppo")
@@ -165,8 +145,7 @@ public class GroupController {
 	@GetMapping("/{groupId}/settlement-status")
 	public ResponseEntity<List<SettlementDTO>> getSettlementStatus(@AuthenticationPrincipal User user,
 			@PathVariable Long groupId) {
-		Group group = groupService.getGroup(groupId);
-		checkMembership(group, user.getId());
+		groupService.getGroupDto(groupId, user.getId());
 		return ResponseEntity.ok(groupService.getGroupSettlementStatus(groupId));
 	}
 
@@ -177,8 +156,7 @@ public class GroupController {
 	@GetMapping("/{groupId}/balance")
 	public ResponseEntity<UserBalanceDTO> getMyGroupBalance(@AuthenticationPrincipal User user,
 			@PathVariable Long groupId) {
-		Group group = groupService.getGroup(groupId);
-		checkMembership(group, user.getId());
+		groupService.getGroupDto(groupId, user.getId());
 		return ResponseEntity.ok(balanceService.getDetailedGroupBalance(user.getId(), groupId));
 	}
 
@@ -189,8 +167,7 @@ public class GroupController {
 	@GetMapping("/{groupId}/settlements")
 	public ResponseEntity<List<UserSettlementDTO>> getMyGroupSettlements(@AuthenticationPrincipal User user,
 			@PathVariable Long groupId) {
-		Group group = groupService.getGroup(groupId);
-		checkMembership(group, user.getId());
+		groupService.getGroupDto(groupId, user.getId());
 		return ResponseEntity.ok(balanceService.getUserGroupSettlements(user.getId(), groupId));
 	}
 
@@ -204,11 +181,5 @@ public class GroupController {
 			@RequestParam(defaultValue = "false") boolean force) {
 		groupService.deleteGroup(groupId, force, user.getId());
 		return ResponseEntity.ok("Gruppo eliminato");
-	}
-
-	private void checkMembership(Group group, Long userId) {
-		if (group == null || !groupService.existsByGroupIdAndUserId(group.getId(), userId)) {
-			throw new AccessDeniedException("L'utente non fa parte del gruppo richiesto");
-		}
 	}
 }

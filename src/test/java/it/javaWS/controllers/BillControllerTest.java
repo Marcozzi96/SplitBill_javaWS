@@ -2,7 +2,10 @@ package it.javaWS.controllers;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.math.BigDecimal;
@@ -200,6 +203,126 @@ class BillControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(debits)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateBill_asBuyer_returnsOk() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User other = createUser("other", "other@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, other, GroupRole.MEMBER);
+        Bill bill = createBill(group, buyer, other, new BigDecimal("100"));
+
+        Map<Long, BigDecimal> debits = Map.of(
+                other.getId(), new BigDecimal("40"),
+                buyer.getId(), new BigDecimal("60"));
+
+        mockMvc.perform(put("/bills/{id}", bill.getId())
+                        .with(user(buyer))
+                        .param("description", "Updated Dinner")
+                        .param("amount", "100")
+                        .param("notes", "updated")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.description").value("Updated Dinner"));
+    }
+
+    @Test
+    void updateBill_asAdmin_returnsOk() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User admin = createUser("admin", "admin@example.com");
+        User other = createUser("other", "other@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, admin, GroupRole.ADMIN);
+        addMember(group, other, GroupRole.MEMBER);
+        Bill bill = createBill(group, buyer, other, new BigDecimal("100"));
+
+        Map<Long, BigDecimal> debits = Map.of(
+                other.getId(), new BigDecimal("50"),
+                buyer.getId(), new BigDecimal("50"));
+
+        mockMvc.perform(put("/bills/{id}", bill.getId())
+                        .with(user(admin))
+                        .param("description", "Admin Updated")
+                        .param("amount", "100")
+                        .param("notes", "updated")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.description").value("Admin Updated"));
+    }
+
+    @Test
+    void updateBill_asOtherMember_returnsUnauthorized() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User member = createUser("member", "member@example.com");
+        User other = createUser("other", "other@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, member, GroupRole.MEMBER);
+        addMember(group, other, GroupRole.MEMBER);
+        Bill bill = createBill(group, buyer, other, new BigDecimal("100"));
+
+        Map<Long, BigDecimal> debits = Map.of(
+                other.getId(), new BigDecimal("50"),
+                buyer.getId(), new BigDecimal("50"));
+
+        mockMvc.perform(put("/bills/{id}", bill.getId())
+                        .with(user(member))
+                        .param("description", "Hacked")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void updateBill_debitSumMismatch_returnsBadRequest() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User other = createUser("other", "other@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, other, GroupRole.MEMBER);
+        Bill bill = createBill(group, buyer, other, new BigDecimal("100"));
+
+        Map<Long, BigDecimal> debits = Map.of(
+                other.getId(), new BigDecimal("60"),
+                buyer.getId(), new BigDecimal("60"));
+
+        mockMvc.perform(put("/bills/{id}", bill.getId())
+                        .with(user(buyer))
+                        .param("description", "Wrong")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getBillsByGroup_pagination_returnsPagedResults() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User other = createUser("other", "other@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, other, GroupRole.MEMBER);
+        createBill(group, buyer, other, new BigDecimal("10"));
+        createBill(group, buyer, other, new BigDecimal("20"));
+        createBill(group, buyer, other, new BigDecimal("30"));
+
+        mockMvc.perform(get("/bills/group/{groupId}", group.getId())
+                        .with(user(buyer))
+                        .param("page", "0")
+                        .param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.totalElements").value(3))
+                .andExpect(jsonPath("$.totalPages").value(2));
     }
 
     private User createUser(String username, String email) {

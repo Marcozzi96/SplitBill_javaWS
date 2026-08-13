@@ -2,12 +2,13 @@ package it.javaWS.controllers;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -25,9 +27,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import it.javaWS.models.dto.BillDTO;
-import it.javaWS.models.dto.TransactionDTO;
-import it.javaWS.models.entities.Bill;
-import it.javaWS.models.entities.Group;
+import it.javaWS.models.dto.UserDTO;
 import it.javaWS.models.entities.User;
 import it.javaWS.models.entities.UserGroup;
 import it.javaWS.services.BillService;
@@ -63,8 +63,7 @@ public class BillController {
 		if (BigDecimal.ZERO.compareTo(amount) > 0)
 			throw new IllegalArgumentException("Importo non valido");
 
-		Group group = groupService.getGroup(groupId);
-		if (group == null || !groupService.existsByGroupIdAndUserId(groupId, user.getId())) {
+		if (!groupService.existsByGroupIdAndUserId(groupId, user.getId())) {
 			throw new AccessDeniedException("L'utente non fa parte del gruppo richiesto");
 		}
 
@@ -74,62 +73,64 @@ public class BillController {
 		}
 		Set<User> clients = userGroups.stream().map(UserGroup::getUser).collect(Collectors.toSet());
 
-		Optional<User> buyerOpt = userService.getUser(user.getId());
-		if (buyerOpt.isEmpty())
-			throw new IllegalStateException("Utente non trovato");
-
-		User buyer = buyerOpt.get();
+		User buyer = userService.getUser(user.getId())
+				.orElseThrow(() -> new IllegalStateException("Utente non trovato"));
 
 		Map<User, BigDecimal> usersDebitConvertito = new HashMap<>();
 		for (User debtor : clients) {
 			usersDebitConvertito.put(debtor, usersDebit.get(debtor.getId()));
 		}
-		Bill bill = billService.createBill(description, amount, notes, buyer, group, usersDebitConvertito);
 
-		BillDTO dto = new BillDTO(bill);
-		Set<TransactionDTO> transactions = billService.getTransactionsByBillId(bill.getId()).stream()
-				.map(TransactionDTO::new).collect(Collectors.toSet());
-		dto.setTransactions(transactions);
-
-		return ResponseEntity.ok(dto);
+		return ResponseEntity.ok(billService.createBillDto(description, amount, notes, buyer, groupService.getGroup(groupId), usersDebitConvertito));
 	}
 
+	@Operation(summary = "Recupera le spese di un gruppo", description = "Restituisce le spese del gruppo con paginazione")
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Lista spese restituita"),
+			@ApiResponse(responseCode = "401", description = "Accesso non autorizzato") })
 	@GetMapping("/group/{groupId}")
-	public ResponseEntity<List<BillDTO>> getBillsByGroup(@AuthenticationPrincipal User user, @PathVariable Long groupId) {
+	public ResponseEntity<Page<BillDTO>> getBillsByGroup(@AuthenticationPrincipal User user,
+			@PathVariable Long groupId,
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "20") int size) {
 		if (!groupService.existsByGroupIdAndUserId(groupId, user.getId())) {
 			throw new AccessDeniedException("L'utente non fa parte del gruppo richiesto");
 		}
-		List<BillDTO> bills = billService.getBillsByGroup(groupId).stream().map(BillDTO::new).toList();
-		return ResponseEntity.ok(bills);
+		Pageable pageable = PageRequest.of(page, size);
+		return ResponseEntity.ok(billService.getBillsByGroup(groupId, pageable));
 	}
 
+	@Operation(summary = "Recupera le spese dove l'utente è buyer", description = "Restituisce le spese create dall'utente autenticato con paginazione")
+	@ApiResponse(responseCode = "200", description = "Lista spese restituita")
 	@GetMapping("/getWhereImBuyer")
-	public ResponseEntity<List<BillDTO>> getBillsWhereUserIsBuyer(@AuthenticationPrincipal User user) {
-		List<Bill> bills = billService.getBillsWhereUserIsBuyer(user.getId());
-
-		List<BillDTO> dtoList = bills.stream().map(b -> {
-			Set<TransactionDTO> transactions = billService.getTransactionsByBillId(b.getId()).stream()
-					.map(TransactionDTO::new).collect(Collectors.toSet());
-
-			BillDTO dto = new BillDTO(b);
-			dto.setTransactions(transactions);
-			return dto;
-		}).toList();
-
-		return ResponseEntity.ok(dtoList);
+	public ResponseEntity<Page<BillDTO>> getBillsWhereUserIsBuyer(@AuthenticationPrincipal User user,
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "20") int size) {
+		Pageable pageable = PageRequest.of(page, size);
+		return ResponseEntity.ok(billService.getBillsWhereUserIsBuyer(user.getId(), pageable));
 	}
 
+	@Operation(summary = "Recupera le proprie spese", description = "Restituisce tutte le spese in cui l'utente autenticato è coinvolto, con paginazione")
+	@ApiResponse(responseCode = "200", description = "Lista spese restituita")
 	@GetMapping("/getMyBills")
-	public ResponseEntity<List<BillDTO>> getBillsByUser(@AuthenticationPrincipal User user) {
-		List<BillDTO> dtoList = billService.getBillsByUserId(user.getId()).stream().map(b -> {
-			Set<TransactionDTO> transactions = billService.getTransactionsByBillId(b.getId()).stream()
-					.map(TransactionDTO::new).collect(Collectors.toSet());
-			BillDTO dto = new BillDTO(b);
-			dto.setTransactions(transactions);
-			return dto;
-		}).toList();
+	public ResponseEntity<Page<BillDTO>> getBillsByUser(@AuthenticationPrincipal User user,
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "20") int size) {
+		Pageable pageable = PageRequest.of(page, size);
+		return ResponseEntity.ok(billService.getBillsByUserId(user.getId(), pageable));
+	}
 
-		return ResponseEntity.ok(dtoList);
+	@Operation(summary = "Modifica una spesa", description = "Consente la modifica solo al buyer della spesa o all'admin del gruppo")
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Spesa modificata"),
+			@ApiResponse(responseCode = "400", description = "Dati non validi"),
+			@ApiResponse(responseCode = "401", description = "Non autorizzato"),
+			@ApiResponse(responseCode = "404", description = "Spesa non trovata") })
+	@PutMapping("/{id}")
+	public ResponseEntity<BillDTO> updateBill(@AuthenticationPrincipal User user, @PathVariable Long id,
+			@RequestParam String description, @RequestParam BigDecimal amount, @RequestParam String notes,
+			@RequestBody Map<Long, BigDecimal> usersDebit) {
+		return ResponseEntity.ok(billService.updateBill(id, user.getId(), description, amount, notes, usersDebit));
 	}
 
 	@Operation(summary = "Elimina una spesa", description = "Consente l'eliminazione solo al buyer della spesa o all'admin del gruppo")
@@ -139,9 +140,9 @@ public class BillController {
 			@ApiResponse(responseCode = "404", description = "Spesa non trovata") })
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Void> deleteBill(@AuthenticationPrincipal User user, @PathVariable Long id) {
-		Bill bill = billService.getBill(id);
-		boolean isBuyer = bill.getBuyer().getId().equals(user.getId());
-		boolean isAdmin = groupService.isUserAdminOfGroup(bill.getGroup().getId(), user.getId());
+		BillDTO bill = billService.getBillDto(id);
+		boolean isBuyer = bill.getBuyer().getUserId().equals(user.getId());
+		boolean isAdmin = groupService.isUserAdminOfGroup(bill.getGroupId(), user.getId());
 		if (!isBuyer && !isAdmin) {
 			throw new UnauthorizedAccessException("Non sei autorizzato a eliminare questa spesa");
 		}

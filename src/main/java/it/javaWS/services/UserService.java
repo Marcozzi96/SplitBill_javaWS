@@ -4,7 +4,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -13,13 +17,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import it.javaWS.enums.StatoAmicizia;
+import it.javaWS.models.dto.FriendshipReqRecDTO;
+import it.javaWS.models.dto.FriendshipReqSenDTO;
 import it.javaWS.models.dto.UpdateUserRequest;
+import it.javaWS.models.dto.UserDTO;
 import it.javaWS.models.entities.Friendship;
 import it.javaWS.models.entities.User;
 import it.javaWS.repositories.UserRepository;
 import it.javaWS.utils.DuplicateUserException;
+import it.javaWS.utils.FriendshipNotFoundException;
 import it.javaWS.utils.InvalidCredentialsException;
-import jakarta.persistence.EntityNotFoundException;
+import it.javaWS.utils.UserNotFoundException;
 
 @Service
 public class UserService implements UserDetailsService {
@@ -45,6 +53,13 @@ public class UserService implements UserDetailsService {
 	@Transactional(readOnly = true)
 	public Optional<User> getUser(Long id) {
 		return userRepository.findById(id);
+	}
+
+	@Transactional(readOnly = true)
+	public UserDTO getUserDto(Long id) {
+		User user = userRepository.findById(id)
+				.orElseThrow(() -> new UserNotFoundException("Utente non trovato"));
+		return new UserDTO(user);
 	}
 
 	@Transactional(readOnly = true)
@@ -136,16 +151,16 @@ public class UserService implements UserDetailsService {
 		Optional<Friendship> existing = friendshipService.findFriendshipBetweenUsers(user1Id, user2Id);
 		if (existing.isPresent()) { // Esiste la riga
 			if (existing.get().getUserToBeConfirmed().getId().equals(userId)) { // l'utente che deve confermare è lo stesso
-																			// che prova a fare richiesta
+																		// che prova a fare richiesta
 				if (existing.get().getStato().equals(StatoAmicizia.IN_ATTESA)) {
 					throw new IllegalStateException("Amicizia già in attesa di conferma");
 				} else if (existing.get().getStato().equals(StatoAmicizia.ACCETTATA)) {
 					throw new IllegalStateException("Siete già amici");
 				} else if (existing.get().getStato().equals(StatoAmicizia.RIFIUTATA)) { // Devo aggiornare la riga
-																						// esistente
+																					// esistente
 					Friendship f = existing.get();
 					User userToBeConfirmed = userRepository.findById(otherId)
-							.orElseThrow(() -> new EntityNotFoundException("Utente non trovato"));
+							.orElseThrow(() -> new UserNotFoundException("Utente non trovato"));
 					f.setUserToBeConfirmed(userToBeConfirmed); // cambiare l'utente che deve accettare
 					f.setStato(StatoAmicizia.IN_ATTESA); // Rimettere la richiesta in attesa
 					f.setMessaggio(message);
@@ -168,9 +183,9 @@ public class UserService implements UserDetailsService {
 
 		Friendship friendship = new Friendship();
 		User user1 = userRepository.findById(user1Id)
-				.orElseThrow(() -> new EntityNotFoundException("Utente non trovato"));
+				.orElseThrow(() -> new UserNotFoundException("Utente non trovato"));
 		User user2 = userRepository.findById(user2Id)
-				.orElseThrow(() -> new EntityNotFoundException("Utente non trovato"));
+				.orElseThrow(() -> new UserNotFoundException("Utente non trovato"));
 
 		friendship.setUser1(user1);
 		friendship.setUser2(user2);
@@ -185,7 +200,7 @@ public class UserService implements UserDetailsService {
 	@Transactional
 	public void accettaRichiestaAmicizia(Long userId, Long requesterId) {
 		Friendship friendship = friendshipService.findFriendshipBetweenUsers(userId, requesterId)
-				.orElseThrow(() -> new EntityNotFoundException("Richiesta non trovata"));
+				.orElseThrow(() -> new FriendshipNotFoundException("Richiesta non trovata"));
 		if(!friendship.getUserToBeConfirmed().getId().equals(userId)) {
 			throw new IllegalStateException("La richiesta non può essere accettata da chi la invia");
 		}
@@ -204,15 +219,32 @@ public class UserService implements UserDetailsService {
 	}
 
 	@Transactional(readOnly = true)
+	public Page<FriendshipReqSenDTO> getRichiesteAmiciziaInviateDto(Long userId, Pageable pageable) {
+		Page<Friendship> page = friendshipService.getSentFriendRequests(userId, pageable);
+		return page.map(FriendshipReqSenDTO::new);
+	}
+
+	@Transactional(readOnly = true)
 	public Set<Friendship> getRichiesteAmiciziaRicevute(Long userId) {
 		return friendshipService.getReceivedFriendRequests(userId);
 
 	}
 
+	@Transactional(readOnly = true)
+	public Page<FriendshipReqRecDTO> getRichiesteAmiciziaRicevuteDto(Long userId, Pageable pageable) {
+		Page<Friendship> page = friendshipService.getReceivedFriendRequests(userId, pageable);
+		return page.map(FriendshipReqRecDTO::new);
+	}
+
+	@Transactional(readOnly = true)
+	public long countRichiesteAmiciziaRicevute(Long userId) {
+		return friendshipService.countReceivedFriendRequests(userId);
+	}
+
 	@Transactional
 	public void rifiutaRichiestaAmicizia(Long userId, Long requesterId) {
 		Friendship friendship = friendshipService.findFriendshipBetweenUsers(userId, requesterId)
-				.orElseThrow(() -> new EntityNotFoundException("Richiesta non trovata"));
+				.orElseThrow(() -> new FriendshipNotFoundException("Richiesta non trovata"));
 		if(!friendship.getStato().equals(StatoAmicizia.IN_ATTESA))
 			throw new IllegalStateException("Richiesta di amicizia 'IN ATTESA' non trovata");
 		if(!friendship.getUserToBeConfirmed().getId().equals(userId)) {
@@ -228,7 +260,7 @@ public class UserService implements UserDetailsService {
 	@Transactional
 	public void rimuoviAmico(Long userId, Long friendId) {
 		Friendship friendship = friendshipService.findFriendshipBetweenUsers(userId, friendId)
-				.orElseThrow(() -> new EntityNotFoundException("Amicizia non trovata"));
+				.orElseThrow(() -> new FriendshipNotFoundException("Amicizia non trovata"));
 
 		if (!friendship.getStato().equals(StatoAmicizia.ACCETTATA))
 			throw new IllegalStateException("Amicizia non trovata");
@@ -239,5 +271,11 @@ public class UserService implements UserDetailsService {
 	@Transactional(readOnly = true)
 	public List<User> getAmici(Long userId) {
 		return friendshipService.getFriendsOfUser(userId, StatoAmicizia.ACCETTATA);
+	}
+
+	@Transactional(readOnly = true)
+	public Page<UserDTO> getAmiciDto(Long userId, Pageable pageable) {
+		Page<User> page = friendshipService.getFriendsOfUser(userId, StatoAmicizia.ACCETTATA, pageable);
+		return page.map(UserDTO::new);
 	}
 }

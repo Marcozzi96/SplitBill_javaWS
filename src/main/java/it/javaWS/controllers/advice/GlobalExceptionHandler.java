@@ -10,13 +10,19 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import it.javaWS.utils.BillNotFoundException;
 import it.javaWS.utils.DuplicateUserException;
+import it.javaWS.utils.FriendshipNotFoundException;
 import it.javaWS.utils.GroupNotFoundException;
 import it.javaWS.utils.InvalidBillException;
 import it.javaWS.utils.InvalidCredentialsException;
+import it.javaWS.utils.InvalidPaymentException;
 import it.javaWS.utils.NotGroupAdminException;
+import it.javaWS.utils.PaymentExceedsDebtException;
 import it.javaWS.utils.PendingSettlementsException;
+import it.javaWS.utils.TransactionNotFoundException;
 import it.javaWS.utils.UnauthorizedAccessException;
+import it.javaWS.utils.UserNotFoundException;
 import jakarta.persistence.EntityNotFoundException;
 
 @RestControllerAdvice
@@ -74,6 +80,21 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(PendingSettlementsException.class)
     public ResponseEntity<Map<String, Object>> handlePendingSettlements(PendingSettlementsException ex) {
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler({UserNotFoundException.class, BillNotFoundException.class, TransactionNotFoundException.class, FriendshipNotFoundException.class})
+    public ResponseEntity<Map<String, Object>> handleDomainNotFound(RuntimeException ex) {
+        return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidPaymentException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidPayment(InvalidPaymentException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(PaymentExceedsDebtException.class)
+    public ResponseEntity<Map<String, Object>> handlePaymentExceedsDebt(PaymentExceedsDebtException ex) {
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 

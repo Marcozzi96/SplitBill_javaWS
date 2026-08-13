@@ -160,7 +160,7 @@ class UserControllerTest {
         mockMvc.perform(get("/user/getFriends")
                         .with(user(user)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].userId").value(friend.getId()));
+                .andExpect(jsonPath("$.content[0].userId").value(friend.getId()));
     }
 
     @Test
@@ -238,6 +238,41 @@ class UserControllerTest {
         mockMvc.perform(get("/user/getFriendshipReqReceived")
                         .with(user(user)))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void getFriendshipRequestsCount_returnsCount() throws Exception {
+        User user = createUser("mario", "mario@example.com", "Password123!");
+        User requester1 = createUser("luigi", "luigi@example.com", "Password123!");
+        User requester2 = createUser("peach", "peach@example.com", "Password123!");
+        createPendingFriendship(requester1, user);
+        createPendingFriendship(requester2, user);
+
+        mockMvc.perform(get("/user/friendshipRequests/count")
+                        .with(user(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(2));
+    }
+
+    @Test
+    void getFriends_pagination_returnsPagedResults() throws Exception {
+        User user = createUser("mario", "mario@example.com", "Password123!");
+        User friend1 = createUser("luigi", "luigi@example.com", "Password123!");
+        User friend2 = createUser("peach", "peach@example.com", "Password123!");
+        User friend3 = createUser("toad", "toad@example.com", "Password123!");
+        createFriendship(user, friend1);
+        createFriendship(user, friend2);
+        createFriendship(user, friend3);
+
+        mockMvc.perform(get("/user/getFriends")
+                        .with(user(user))
+                        .param("page", "0")
+                        .param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.totalElements").value(3))
+                .andExpect(jsonPath("$.totalPages").value(2));
     }
 
     private void createFriendship(User u1, User u2) {

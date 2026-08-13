@@ -301,7 +301,25 @@ class GroupControllerTest {
         mockMvc.perform(get("/groups")
                         .with(user(member)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].groupId").value(group.getId()));
+                .andExpect(jsonPath("$.content[0].groupId").value(group.getId()));
+    }
+
+    @Test
+    void getGroupsByUser_pagination_returnsPagedResults() throws Exception {
+        User member = createUser("member", "member@example.com");
+        addMember(createGroup("Trip 1"), member, GroupRole.MEMBER);
+        addMember(createGroup("Trip 2"), member, GroupRole.MEMBER);
+        addMember(createGroup("Trip 3"), member, GroupRole.MEMBER);
+
+        mockMvc.perform(get("/groups")
+                        .with(user(member))
+                        .param("page", "0")
+                        .param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.totalElements").value(3))
+                .andExpect(jsonPath("$.totalPages").value(2));
     }
 
     @Test
