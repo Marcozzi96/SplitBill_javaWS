@@ -1,5 +1,9 @@
 HELP.md
 target/
+# Database H2 su file (profilo dev)
+data/
+*.mv.db
+*.trace.db
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/

@@ -1,6 +1,7 @@
 package it.javaWS.filters;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
@@ -76,6 +77,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         if (window.count.get() > limit) {
             log.warn("Rate limit superato per {} su {}", resolveClientIp(request), request.getRequestURI());
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.getWriter().write("{\"timestamp\":\"" + Instant.now() + "\","
                     + "\"status\":" + HttpStatus.TOO_MANY_REQUESTS.value() + ","

@@ -2,6 +2,7 @@ package it.javaWS.config.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -25,6 +26,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
+                .cors(Customizer.withDefaults()) // usa il bean corsConfigurationSource di GlobalCorsConfig:
+                // senza questo, i preflight OPTIONS verrebbero bloccati con 403 dalla filter chain
 //        		.csrf(csrf -> csrf
 //                        .ignoringRequestMatchers("/h2-console/**","/auth/**") // disattiva CSRF solo per H2 e auth
 //                )

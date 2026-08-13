@@ -16,6 +16,9 @@ public class EmailUtil {
 	@Value("${app.open-link}")
 	private String openLink;
 
+	@Value("${spring.mail.username}")
+	private String fromEmail;
+
 	public EmailUtil(JavaMailSender mailSender) {
 		this.mailSender = mailSender;
 	}
@@ -24,6 +27,7 @@ public class EmailUtil {
 		try {
 			MimeMessage message = mailSender.createMimeMessage();
 			MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+			helper.setFrom(fromEmail);
 			helper.setTo(to);
 			helper.setSubject(subject);
 			helper.setText(body, true);

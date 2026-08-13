@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:splitbill;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    url: jdbc:h2:file:./data/splitbill
     driver-class-name: org.h2.Driver
     username: sa
     password:
@@ -10,7 +10,8 @@ spring:
       path: /h2-console
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      # update (non create-drop): con H2 su file i dati devono sopravvivere ai riavvii
+      ddl-auto: update
     show-sql: true
   mail:
     host: localhost
