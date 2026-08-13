@@ -1,24 +1,27 @@
 package it.javaWS.utils;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
 import javax.crypto.SecretKey;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import it.javaWS.models.entities.User;
 
 @Component
 public class JwtUtil {
+
+	private static final Logger log = LoggerFactory.getLogger(JwtUtil.class);
 
 	private SecretKey secretKey;
 
@@ -30,7 +33,13 @@ public class JwtUtil {
 
 	private SecretKey getSigningKey() {
 		if (this.secretKey == null) {
-			this.secretKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+			if (jwtSecret == null || jwtSecret.isBlank()) {
+				// Solo per sviluppo locale: chiave effimera, i token si invalidano ad ogni riavvio
+				log.warn("JWT_SECRET non impostata: generata chiave effimera casuale (solo per sviluppo). I token saranno invalidati ad ogni riavvio.");
+				this.secretKey = Jwts.SIG.HS512.key().build();
+			} else {
+				this.secretKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret));
+			}
 		}
 		return this.secretKey;
 	}
@@ -41,14 +50,6 @@ public class JwtUtil {
 
 	public Long extractUserId(String token) {
 		return extractAllClaims(token).get("userId", Long.class);
-	}
-
-	public String extractPassword(String token) {
-		return extractAllClaims(token).get("password", String.class);
-	}
-
-	public String extractEmail(String token) {
-		return extractAllClaims(token).get("email", String.class);
 	}
 
 	public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
@@ -72,19 +73,6 @@ public class JwtUtil {
 		return Jwts.builder()
 				.claims(claims)
 				.subject(user.getUsername())
-				.issuedAt(new Date())
-				.expiration(new Date(System.currentTimeMillis() + 1000 * jwtValidity))
-				.signWith(getSigningKey())
-				.compact();
-	}
-
-	public String generateEmailToken(String username, String password, String email) {
-		Map<String, Object> claims = new HashMap<>();
-		claims.put("password", password);
-		claims.put("email", email);
-		return Jwts.builder()
-				.claims(claims)
-				.subject(username)
 				.issuedAt(new Date())
 				.expiration(new Date(System.currentTimeMillis() + 1000 * jwtValidity))
 				.signWith(getSigningKey())

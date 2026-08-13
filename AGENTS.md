@@ -75,13 +75,15 @@ src/main/java/it/javaWS/
 │   ├── GroupService.java
 │   ├── BillService.java
 │   ├── TransactionService.java
-│   └── BalanceService.java
+│   ├── BalanceService.java
+│   └── AuthTokenService.java        # Token opachi registrazione/reset password
 ├── repositories/                    # Spring Data JPA
 │   ├── UserRepository.java
 │   ├── FriendshipRepository.java
 │   ├── GroupRepository.java
 │   ├── UserGroupRepository.java
 │   ├── BillRepository.java
+│   ├── AuthTokenRepository.java
 │   └── TransactionRepository.java
 ├── models/
 │   ├── entities/                    # Entità JPA
@@ -91,6 +93,7 @@ src/main/java/it/javaWS/
 │   │   ├── UserGroupId.java
 │   │   ├── Friendship.java
 │   │   ├── Bill.java
+│   │   ├── AuthToken.java
 │   │   └── Transaction.java
 │   ├── dto/                         # Data Transfer Objects
 │   │   ├── UserDTO.java
@@ -104,15 +107,19 @@ src/main/java/it/javaWS/
 │   │   ├── FriendshipReqSenDTO.java
 │   │   ├── AuthRequest.java
 │   │   ├── AuthResponse.java
+│   │   ├── ForgotPasswordRequest.java
+│   │   ├── ResetPasswordRequest.java
 │   │   └── UpdateUserRequest.java
 │   └── enums/
 │       └── GroupRole.java
+├── enums/                           # Enum di dominio (es. StatoAmicizia, AuthTokenType)
 ├── utils/                           # Utility e eccezioni custom
 │   ├── JwtUtil.java
 │   ├── EmailUtil.java
 │   └── *Exception.java
 └── filters/                         # Filtri servlet
-    └── SuspiciousRequestFilter.java
+    ├── SuspiciousRequestFilter.java
+    └── AuthRateLimitFilter.java     # Rate limiting in-memory su /auth/**
 
 src/main/resources/
 ├── application.yml                  # Configurazione comune
@@ -124,6 +131,7 @@ src/test/java/it/javaWS/
 ├── services/                        # Test di unità con Mockito
 │   ├── BillServiceTest.java
 │   ├── GroupServiceTest.java
+│   ├── AuthTokenServiceTest.java
 │   └── UserServiceTest.java
 ├── controllers/                     # Test di integrazione REST
 │   ├── AuthControllerTest.java
@@ -202,9 +210,11 @@ Il profilo attivo è determinato da `SPRING_PROFILES_ACTIVE` (default `dev`).
 
 | Variabile | Descrizione | Default |
 |-----------|-------------|---------|
-| `JWT_SECRET` | Chiave segreta per la firma JWT | Valore di default in `application-dev.yml` |
+| `JWT_SECRET` | Chiave segreta Base64 (≥512 bit) per la firma JWT. Se assente, `JwtUtil` genera una chiave effimera ad ogni avvio (solo dev) | generata automaticamente |
 | `JWT_VALIDITY` | Durata token in secondi | `86400` (24h) |
-| `OPEN_LINK` | URL base frontend per link di conferma | `http://localhost:8080` |
+| `OPEN_LINK` | URL base frontend per link di conferma/reset | `http://localhost:8080` |
+| `RATE_LIMIT_LIMIT` | Max richieste per finestra su `/auth/**` | `10` |
+| `RATE_LIMIT_WINDOW_SECONDS` | Durata finestra rate limiting in secondi | `60` |
 
 ### Profilo `prod`
 
@@ -214,7 +224,7 @@ Il profilo attivo è determinato da `SPRING_PROFILES_ACTIVE` (default `dev`).
 | `SPRING_DATASOURCE_URL` | URL JDBC PostgreSQL |
 | `SPRING_DATASOURCE_USERNAME` | Username PostgreSQL |
 | `SPRING_DATASOURCE_PASSWORD` | Password PostgreSQL |
-| `JWT_SECRET` | Chiave segreta JWT (deve essere robusta) |
+| `JWT_SECRET` | Chiave segreta JWT in Base64, ≥512 bit (es. `openssl rand -base64 64`) — obbligatoria |
 | `JWT_VALIDITY` | Durata token in secondi |
 | `MAIL_HOST` | Host SMTP |
 | `MAIL_PORT` | Porta SMTP |
@@ -263,9 +273,11 @@ Il profilo attivo è determinato da `SPRING_PROFILES_ACTIVE` (default `dev`).
 - Endpoint pubblici: `/auth/**`, `/status/**`, `/swagger-ui/**`, `/v3/api-docs/**`, `/swagger-ui.html`, `/h2-console/**`.
 - Tutti gli altri endpoint richiedono l'header `Authorization: Bearer <token>`.
 - CORS configurato con origini esplicite (`http://localhost:3000`, `https://fe-splitbill.vercel.app`).
+- Presente un filtro `AuthRateLimitFilter` che applica rate limiting in-memory (finestra fissa per IP+endpoint) su `POST /auth/login|register|forgotPassword|resetPassword`; oltre soglia risponde `429`.
+- La chiave JWT viene decodificata da Base64 in `JwtUtil` (`Decoders.BASE64`); se `jwt.secret` è vuota (solo dev), viene generata una chiave HS512 effimera con warning.
 - Presente un filtro `SuspiciousRequestFilter` che blocca pattern di richieste sospette (es. `${jndi:...`).
 
-> **Nota di sicurezza**: durante la registrazione, il token di conferma email generato da `JwtUtil.generateEmailToken` include la password in chiaro nei claim JWT (`password`, `email`, `sub`). Questo è un rischio da rivedere in produzione: i token JWT possono essere decodificati da chiunque li intercetti e non devono contenere segreti. Si consiglia di usare un token opaco salvato lato server o, in alternativa, di non includere la password nei claim.
+> **Nota di sicurezza (risolta nello Sprint 5)**: i token di conferma registrazione e di reset password sono ora **opachi** (UUID casuali salvati su DB nella tabella `auth_tokens`), con scadenza (24h registrazione, 15 minuti reset) e uso singolo. La password non transita più nei claim JWT: per le registrazioni in attesa viene salvata solo in forma encodata (BCrypt) nel record del token.
 
 ---
 

@@ -63,4 +63,21 @@ public class EmailUtil {
 				"</body>" +
 				"</html>";
 	}
+
+	public String creaCorpoEmailResetPassword(String nomeUtente, String token) {
+		String linkReset = openLink + "/resetPassword?token=" + token;
+
+		return "<html>" +
+				"<body>" +
+				"<p>Ciao " + nomeUtente + ",</p>" +
+				"<p>Abbiamo ricevuto una richiesta di reimpostazione della password per il tuo account <strong>SplitBill</strong>.</p>" +
+				"<p>Per scegliere una nuova password, clicca sul link qui sotto (valido per 15 minuti):</p>" +
+				"<p><a href=\"" + linkReset + "\">Reimposta la tua password</a></p>" +
+				"<br>" +
+				"<p>Se non hai richiesto tu il reset della password, puoi ignorare questa email.</p>" +
+				"<br>" +
+				"<p>Il team di Composizioni&Co</p>" +
+				"</body>" +
+				"</html>";
+	}
 }

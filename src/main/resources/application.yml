@@ -12,8 +12,11 @@ server:
   port: ${PORT:8080}
 
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:}
   validity: ${JWT_VALIDITY:86400}
 
 app:
   open-link: ${OPEN_LINK:http://localhost:8080}
+  rate-limit:
+    limit: ${RATE_LIMIT_LIMIT:10}
+    window-seconds: ${RATE_LIMIT_WINDOW_SECONDS:60}

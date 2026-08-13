@@ -130,6 +130,11 @@ public class UserService implements UserDetailsService {
 	}
 
 	@Transactional(readOnly = true)
+	public User getByEmail(String email) {
+		return userRepository.findByEmailIgnoreCase(email).orElse(null);
+	}
+
+	@Transactional(readOnly = true)
 	public Boolean existsByUsername(String username) {
 		return userRepository.existsByUsernameAndDeletedFalse(username);
 	}

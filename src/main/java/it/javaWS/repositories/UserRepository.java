@@ -17,6 +17,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
 	@Query("SELECT u FROM User u WHERE u.deleted = false AND LOWER(u.username) = LOWER(?1)")
 	Optional<User> findByUsernameIgnoreCase(String username);
 	
+	@Query("SELECT u FROM User u WHERE u.deleted = false AND LOWER(u.email) = LOWER(?1)")
+	Optional<User> findByEmailIgnoreCase(String email);
+
 	boolean existsByUsernameAndDeletedFalse(String username);
 }
 

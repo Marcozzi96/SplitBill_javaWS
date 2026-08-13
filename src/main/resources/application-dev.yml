@@ -25,7 +25,7 @@ spring:
             enable: false
 
 jwt:
-  secret: ${JWT_SECRET:dev-secret-key-must-be-at-least-512-bits-long-for-hs512-xxxxx}
+  secret: ${JWT_SECRET:}
   validity: ${JWT_VALIDITY:86400}
 
 springdoc:

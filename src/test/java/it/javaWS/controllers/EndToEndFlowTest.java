@@ -25,11 +25,12 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import it.javaWS.enums.AuthTokenType;
 import it.javaWS.models.dto.AuthRequest;
 import it.javaWS.models.entities.User;
+import it.javaWS.repositories.AuthTokenRepository;
 import it.javaWS.repositories.UserRepository;
 import it.javaWS.utils.EmailUtil;
-import it.javaWS.utils.JwtUtil;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -44,10 +45,10 @@ class EndToEndFlowTest {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private JwtUtil jwtUtil;
+    private UserRepository userRepository;
 
     @Autowired
-    private UserRepository userRepository;
+    private AuthTokenRepository authTokenRepository;
 
     @MockitoBean
     private EmailUtil emailUtil;
@@ -95,7 +96,11 @@ class EndToEndFlowTest {
     }
 
     private Long confirmEmail(String username, String email, String password) throws Exception {
-        String token = jwtUtil.generateEmailToken(username, password, email);
+        String token = authTokenRepository.findAll().stream()
+                .filter(t -> t.getType() == AuthTokenType.REGISTRATION && username.equals(t.getUsername()))
+                .findFirst()
+                .orElseThrow()
+                .getToken();
         MvcResult result = mockMvc.perform(get("/auth/confirmEmail")
                         .param("token", token))
                 .andExpect(status().isOk())

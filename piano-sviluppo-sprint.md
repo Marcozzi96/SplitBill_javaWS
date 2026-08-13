@@ -198,29 +198,31 @@ Aggregando per coppia (A, B), si ottiene l'importo netto che A deve a B (positiv
 
 ### Task
 
-- [ ] Implementare recupero password via email:
+- [x] Implementare recupero password via email:
   - endpoint `POST /auth/forgotPassword`;
   - endpoint `POST /auth/resetPassword` con token;
-  - token di reset opaco e a breve scadenza, salvato su DB.
-- [ ] Rimuovere la password dal token di conferma registrazione (sostituire con token opaco).
-- [ ] Decodificare la chiave JWT da Base64 in `JwtUtil` e caricarla da variabile d'ambiente.
-- [ ] Rimuovere il default hardcoded di `JWT_SECRET` da `application-dev.yml` (rendere la variabile d'ambiente obbligatoria o generarla in modo sicuro in locale).
-- [ ] Aggiungere rate limiting sugli endpoint di autenticazione.
-- [ ] Revisone delle configurazioni di produzione (`application-prod.yml`, variabili d'ambiente).
-- [ ] Aggiornare `README.md` e documentazione Swagger con le nuove API.
-- [ ] Eseguire audit dipendenze (`mvn versions:display-dependency-updates`, `mvn dependency-check:check`).
+  - token di reset opaco e a breve scadenza (15 minuti), salvato su DB (entità `AuthToken`, tabella `auth_tokens`).
+- [x] Rimuovere la password dal token di conferma registrazione (sostituito con token opaco su DB, scadenza 24h; la password in attesa di conferma è salvata solo encodata BCrypt).
+- [x] Decodificare la chiave JWT da Base64 in `JwtUtil` e caricarla da variabile d'ambiente.
+- [x] Rimuovere il default hardcoded di `JWT_SECRET` da `application-dev.yml`: se assente, `JwtUtil` genera una chiave HS512 effimera con warning (solo dev); in prod resta obbligatoria.
+- [x] Aggiungere rate limiting sugli endpoint di autenticazione (`AuthRateLimitFilter`, finestra fissa per IP+endpoint, default 10 req/min, configurabile via `RATE_LIMIT_LIMIT`/`RATE_LIMIT_WINDOW_SECONDS`).
+- [x] Revisone delle configurazioni di produzione (`application-prod.yml`, variabili d'ambiente): nessun default per i segreti; documentato il formato Base64 di `JWT_SECRET` (breaking change: i token esistenti si invalidano).
+- [x] Aggiornare `README.md` e documentazione Swagger con le nuove API.
+- [x] Eseguire audit dipendenze: `mvn versions:display-dependency-updates` eseguito (aggiornamenti disponibili: `springdoc-openapi` 2.8.17→3.1.0, `postgresql` 42.7.11→42.7.13, `h2` 2.3.232→2.4.240 — gestiti dal BOM Spring Boot o da valutare in un intervento dedicato). `dependency-check:check` non eseguito: plugin OWASP non configurato nel progetto e richiede il download del database NVD.
 
 ### Test
 
-- [ ] Test di integrazione per recupero password.
-- [ ] Test di sicurezza sui token di conferma e reset.
-- [ ] Verifica del build Docker.
+- [x] Test di integrazione per recupero password (forgot/reset, token usato/scaduto/tipo errato, login con nuova password).
+- [x] Test di sicurezza sui token di conferma e reset (token opaco senza password, uso singolo, scadenza) e test sul rate limiting (429 oltre soglia).
+- [ ] Verifica del build Docker: non eseguita perché Docker non è disponibile sulla macchina di sviluppo; verifica statica del `Dockerfile` superata (nome jar coerente con l'artefatto Maven).
 
 ### Definition of Done
 
-- Il recupero password funziona in ambiente dev con mail stub.
-- Il container Docker si avvia correttamente.
-- Nessuna dipendenza critica obsoleta.
+- [x] Il recupero password funziona in ambiente dev con mail stub (test di integrazione verdi).
+- [ ] Il container Docker si avvia correttamente (da verificare su una macchina con Docker).
+- [x] Nessuna dipendenza critica obsoleta (nessuna dipendenza diretta critica; aggiornamenti minori disponibili elencati sopra).
+
+> Completato il 2026-08-13: 175 test passati. Resta da verificare il build Docker su una macchina con Docker disponibile.
 
 ---
 

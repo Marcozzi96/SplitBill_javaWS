@@ -17,6 +17,7 @@ import it.javaWS.utils.GroupNotFoundException;
 import it.javaWS.utils.InvalidBillException;
 import it.javaWS.utils.InvalidCredentialsException;
 import it.javaWS.utils.InvalidPaymentException;
+import it.javaWS.utils.InvalidTokenException;
 import it.javaWS.utils.NotGroupAdminException;
 import it.javaWS.utils.PaymentExceedsDebtException;
 import it.javaWS.utils.PendingSettlementsException;
@@ -86,6 +87,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({UserNotFoundException.class, BillNotFoundException.class, TransactionNotFoundException.class, FriendshipNotFoundException.class})
     public ResponseEntity<Map<String, Object>> handleDomainNotFound(RuntimeException ex) {
         return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidTokenException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidToken(InvalidTokenException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
     @ExceptionHandler(InvalidPaymentException.class)
