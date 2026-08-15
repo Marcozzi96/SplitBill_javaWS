@@ -25,11 +25,13 @@ public interface UserGroupRepository extends JpaRepository<UserGroup, UserGroupI
     
     Set<UserGroup> findByGroup_IdAndUser_IdIn(Long groupId, Set<Long> userIds);
     
-    boolean existsByGroupIdAndUserId(Long groupId, Long userId);
+    // Membership "attiva" = dataUscita null: chi è uscito dal gruppo non conta più come membro.
+    @Query("SELECT COUNT(ug) > 0 FROM UserGroup ug WHERE ug.group.id = :groupId AND ug.user.id = :userId AND ug.dataUscita IS NULL")
+    boolean existsByGroupIdAndUserId(@Param("groupId") Long groupId, @Param("userId") Long userId);
     
     List<UserGroup> findByGroupId(Long groupId);
 
-    @Query("SELECT COUNT(ug) > 0 FROM UserGroup ug WHERE ug.group.id = :groupId AND ug.user.id = :userId AND ug.role = :role")
+    @Query("SELECT COUNT(ug) > 0 FROM UserGroup ug WHERE ug.group.id = :groupId AND ug.user.id = :userId AND ug.role = :role AND ug.dataUscita IS NULL")
     boolean existsByGroupIdAndUserIdAndRole(@Param("groupId") Long groupId, @Param("userId") Long userId, @Param("role") GroupRole role);
 
     @Query("SELECT ug FROM UserGroup ug WHERE ug.group.id = :groupId AND ug.dataUscita IS NULL")

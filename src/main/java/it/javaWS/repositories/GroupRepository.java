@@ -14,15 +14,15 @@ import it.javaWS.models.entities.User;
 @Repository
 public interface GroupRepository extends JpaRepository<Group, Long> {
 
-    // 1. Trova i gruppi in base all'utente
-    @Query("SELECT g FROM Group g JOIN g.userGroups ug WHERE ug.user = :user")
+    // 1. Trova i gruppi in base all'utente (solo membership attive: dataUscita null)
+    @Query("SELECT g FROM Group g JOIN g.userGroups ug WHERE ug.user = :user AND ug.dataUscita IS NULL")
     List<Group> getGroupsByUser(User user);
 
-    // 2. Trova i gruppi in base all'id dell'utente
-    @Query("SELECT g FROM Group g JOIN g.userGroups ug WHERE ug.user.id = :userId")
+    // 2. Trova i gruppi in base all'id dell'utente (solo membership attive)
+    @Query("SELECT g FROM Group g JOIN g.userGroups ug WHERE ug.user.id = :userId AND ug.dataUscita IS NULL")
     List<Group> getGroupsByUserId(Long userId);
 
-    // 3. Trova i gruppi in base all'id dell'utente con paginazione
-    @Query("SELECT g FROM Group g JOIN g.userGroups ug WHERE ug.user.id = :userId")
+    // 3. Trova i gruppi in base all'id dell'utente con paginazione (solo membership attive)
+    @Query("SELECT g FROM Group g JOIN g.userGroups ug WHERE ug.user.id = :userId AND ug.dataUscita IS NULL")
     Page<Group> getGroupsByUserId(Long userId, Pageable pageable);
 }

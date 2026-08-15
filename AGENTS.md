@@ -16,7 +16,8 @@ Funzionalità principali:
 - Autenticazione con JWT (registrazione con conferma email, login).
 - Gestione utenti (profilo, modifica, soft delete).
 - Gestione amicizie (richieste, accettazione, rifiuto, annullamento, lista amici).
-- Gestione gruppi di spesa (creazione, aggiunta membri, uscita).
+- Gestione gruppi di spesa (creazione, aggiunta membri, uscita soft: all'uscita i debiti/crediti dell'uscente si estinguono nel gruppo e vengono trasferiti a livello globale, cioè settlement con `group_id` null).
+- I controlli di membership (`UserGroupRepository.existsByGroupIdAndUserId*`) considerano solo i membri attivi (`dataUscita` null): chi è uscito non può più operare sul gruppo.
 - Gestione spese con suddivisione personalizzata dei debiti.
 - Calcolo del saldo netto di un utente.
 - Documentazione API tramite Swagger UI.

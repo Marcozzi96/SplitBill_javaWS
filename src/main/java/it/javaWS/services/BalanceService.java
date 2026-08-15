@@ -7,11 +7,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import it.javaWS.models.dto.SettlementDTO;
 import it.javaWS.models.dto.UserBalanceDTO;
 import it.javaWS.models.dto.UserDTO;
 import it.javaWS.models.dto.UserSettlementDTO;
@@ -24,7 +23,6 @@ import it.javaWS.models.entities.User;
 import it.javaWS.models.entities.UserBalance;
 import it.javaWS.models.entities.UserGroupBalance;
 import it.javaWS.models.enums.SettlementDirection;
-import it.javaWS.repositories.BillRepository;
 import it.javaWS.repositories.PairwiseSettlementRepository;
 import it.javaWS.repositories.TransactionRepository;
 import it.javaWS.repositories.UserBalanceRepository;
@@ -39,33 +37,25 @@ public class BalanceService {
 
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
-    private final BillRepository billRepository;
     private final UserBalanceRepository userBalanceRepository;
     private final UserGroupBalanceRepository userGroupBalanceRepository;
     private final PairwiseSettlementRepository pairwiseSettlementRepository;
 
     public BalanceService(TransactionRepository transactionRepository, UserRepository userRepository,
-            BillRepository billRepository, UserBalanceRepository userBalanceRepository,
+            UserBalanceRepository userBalanceRepository,
             UserGroupBalanceRepository userGroupBalanceRepository,
             PairwiseSettlementRepository pairwiseSettlementRepository) {
         this.transactionRepository = transactionRepository;
         this.userRepository = userRepository;
-        this.billRepository = billRepository;
         this.userBalanceRepository = userBalanceRepository;
         this.userGroupBalanceRepository = userGroupBalanceRepository;
         this.pairwiseSettlementRepository = pairwiseSettlementRepository;
     }
 
-    @EventListener(ApplicationReadyEvent.class)
-    @Transactional
-    public void initializeBalances() {
-        userBalanceRepository.deleteAll();
-        userGroupBalanceRepository.deleteAll();
-        pairwiseSettlementRepository.deleteAll();
-        for (Bill bill : billRepository.findAll()) {
-            applyBill(bill);
-        }
-    }
+    // Nota: saldi e settlement sono mantenuti in modo incrementale dalle singole
+    // operazioni (applyBill/revertBill/applyPayment/transferUserSettlementsToGlobal).
+    // Non esiste più una ricostruzione all'avvio: cancellava rimborsi e trasferimenti
+    // a ogni restart in produzione.
 
     @Transactional(readOnly = true)
     public BigDecimal getUserBalance(Long userId) {
@@ -103,17 +93,26 @@ public class BalanceService {
     @Transactional(readOnly = true)
     public List<UserSettlementDTO> getUserSettlements(Long userId) {
         List<PairwiseSettlement> settlements = pairwiseSettlementRepository.findByDebtorIdOrCreditorId(userId, userId);
-        Map<Long, BigDecimal> aggregated = new HashMap<>();
+        // Aggrega per coppia (controparte, gruppo): groupId null = debito personale fuori dai gruppi.
+        Map<String, BigDecimal> aggregated = new HashMap<>();
+        Map<String, PairwiseSettlement> referenceByKey = new HashMap<>();
 
         for (PairwiseSettlement settlement : settlements) {
-            if (settlement.getDebtor().getId().equals(userId)) {
-                aggregated.merge(settlement.getCreditor().getId(), settlement.getAmount(), BigDecimal::add);
-            } else {
-                aggregated.merge(settlement.getDebtor().getId(), settlement.getAmount().negate(), BigDecimal::add);
-            }
+            String key = scopeKey(settlement, userId);
+            aggregated.merge(key, signedAmount(settlement, userId), BigDecimal::add);
+            referenceByKey.putIfAbsent(key, settlement);
         }
 
-        return toUserSettlementDtos(aggregated);
+        List<UserSettlementDTO> result = new ArrayList<>();
+        for (Map.Entry<String, BigDecimal> entry : aggregated.entrySet()) {
+            PairwiseSettlement reference = referenceByKey.get(entry.getKey());
+            Long counterpartyId = counterpartyId(reference, userId);
+            UserSettlementDTO dto = toUserSettlementDto(counterpartyId, entry.getValue(), reference.getGroup());
+            if (dto != null) {
+                result.add(dto);
+            }
+        }
+        return result;
     }
 
     @Transactional(readOnly = true)
@@ -123,15 +122,58 @@ public class BalanceService {
         settlements.addAll(pairwiseSettlementRepository.findByCreditorIdAndGroupId(userId, groupId));
 
         Map<Long, BigDecimal> aggregated = new HashMap<>();
+        Group group = null;
         for (PairwiseSettlement settlement : settlements) {
-            if (settlement.getDebtor().getId().equals(userId)) {
-                aggregated.merge(settlement.getCreditor().getId(), settlement.getAmount(), BigDecimal::add);
-            } else {
-                aggregated.merge(settlement.getDebtor().getId(), settlement.getAmount().negate(), BigDecimal::add);
-            }
+            group = settlement.getGroup();
+            aggregated.merge(counterpartyId(settlement, userId), signedAmount(settlement, userId), BigDecimal::add);
         }
 
-        return toUserSettlementDtos(aggregated);
+        List<UserSettlementDTO> result = new ArrayList<>();
+        for (Map.Entry<Long, BigDecimal> entry : aggregated.entrySet()) {
+            UserSettlementDTO dto = toUserSettlementDto(entry.getKey(), entry.getValue(), group);
+            if (dto != null) {
+                result.add(dto);
+            }
+        }
+        return result;
+    }
+
+    // Debiti pendenti del gruppo letti dai settlement pairwise: riflettono spese,
+    // rimborsi e trasferimenti a livello globale dovuti all'uscita di membri.
+    @Transactional(readOnly = true)
+    public List<SettlementDTO> getGroupSettlementStatus(Long groupId) {
+        return pairwiseSettlementRepository.findByGroupId(groupId).stream()
+                .map(ps -> new SettlementDTO(new UserDTO(ps.getDebtor()), new UserDTO(ps.getCreditor()),
+                        ps.getAmount()))
+                .toList();
+    }
+
+    /**
+     * Trasferisce a livello globale (group = null) tutti i debiti/crediti che l'utente
+     * ha nel gruppo, riallineando i saldi di gruppo. Invocato quando l'utente esce
+     * dal gruppo: i suoi rapporti economici con gli altri membri diventano personali.
+     */
+    @Transactional
+    public void transferUserSettlementsToGlobal(Group group, Long userId) {
+        for (PairwiseSettlement settlement : pairwiseSettlementRepository.findByGroupId(group.getId())) {
+            boolean isDebtor = settlement.getDebtor().getId().equals(userId);
+            boolean isCreditor = settlement.getCreditor().getId().equals(userId);
+            if (!isDebtor && !isCreditor) {
+                continue;
+            }
+            User debtor = settlement.getDebtor();
+            User creditor = settlement.getCreditor();
+            BigDecimal amount = settlement.getAmount();
+
+            // Sposta il debito: fuori dallo scope gruppo, dentro quello globale (con netting).
+            subtractPairwiseDebt(debtor, creditor, group, amount);
+            addPairwiseDebt(debtor, creditor, null, amount);
+
+            // Riallinea solo i saldi di gruppo (come un rimborso interno): quelli globali
+            // restano invariati perché il debito esiste ancora, è solo cambiato di scope.
+            updateGroupBalanceOnly(debtor, group, BigDecimal.ZERO, amount.negate());
+            updateGroupBalanceOnly(creditor, group, amount.negate(), BigDecimal.ZERO);
+        }
     }
 
     @Transactional
@@ -279,13 +321,12 @@ public class BalanceService {
                     .orElse(BigDecimal.ZERO);
         }
 
-        BigDecimal debt = BigDecimal.ZERO;
-        for (PairwiseSettlement settlement : pairwiseSettlementRepository.findByDebtorIdOrCreditorId(payerId, payeeId)) {
-            if (settlement.getDebtor().getId().equals(payerId) && settlement.getCreditor().getId().equals(payeeId)) {
-                debt = debt.add(settlement.getAmount());
-            }
-        }
-        return debt;
+        // groupId null: contano solo i settlement personali (senza gruppo); i debiti
+        // ancora dentro i gruppi si saldano solo con rimborsi che indicano il groupId.
+        return pairwiseSettlementRepository
+                .findByDebtorIdAndCreditorIdAndGroupIdIsNull(payerId, payeeId)
+                .map(PairwiseSettlement::getAmount)
+                .orElse(BigDecimal.ZERO);
     }
 
     private void updateUserBalanceForPayment(User user, Group group, BigDecimal paidDelta, BigDecimal owedDelta) {
@@ -399,21 +440,44 @@ public class BalanceService {
         return settlement;
     }
 
-    private List<UserSettlementDTO> toUserSettlementDtos(Map<Long, BigDecimal> aggregated) {
-        List<UserSettlementDTO> result = new ArrayList<>();
-        for (Map.Entry<Long, BigDecimal> entry : aggregated.entrySet()) {
-            BigDecimal net = entry.getValue();
-            if (net.compareTo(BigDecimal.ZERO) == 0) {
-                continue;
-            }
-            User counterparty = userRepository.findById(entry.getKey())
-                    .orElseThrow(() -> new EntityNotFoundException("Utente non trovato"));
-            if (net.compareTo(BigDecimal.ZERO) > 0) {
-                result.add(new UserSettlementDTO(new UserDTO(counterparty), net, SettlementDirection.DEBT));
-            } else {
-                result.add(new UserSettlementDTO(new UserDTO(counterparty), net.negate(), SettlementDirection.CREDIT));
-            }
+    private void updateGroupBalanceOnly(User user, Group group, BigDecimal paidDelta, BigDecimal owedDelta) {
+        UserGroupBalance groupBalance = userGroupBalanceRepository.findByUserIdAndGroupId(user.getId(), group.getId())
+                .orElseGet(() -> createUserGroupBalance(user, group));
+        groupBalance.setTotalPaid(groupBalance.getTotalPaid().add(paidDelta));
+        groupBalance.setTotalOwed(groupBalance.getTotalOwed().add(owedDelta));
+        groupBalance.setNetBalance(groupBalance.getTotalPaid().subtract(groupBalance.getTotalOwed()));
+    }
+
+    private String scopeKey(PairwiseSettlement settlement, Long userId) {
+        Long groupId = settlement.getGroup() != null ? settlement.getGroup().getId() : null;
+        return counterpartyId(settlement, userId) + "|" + groupId;
+    }
+
+    private Long counterpartyId(PairwiseSettlement settlement, Long userId) {
+        return settlement.getDebtor().getId().equals(userId)
+                ? settlement.getCreditor().getId()
+                : settlement.getDebtor().getId();
+    }
+
+    // Segno dal punto di vista dell'utente: positivo = debito verso la controparte.
+    private BigDecimal signedAmount(PairwiseSettlement settlement, Long userId) {
+        return settlement.getDebtor().getId().equals(userId)
+                ? settlement.getAmount()
+                : settlement.getAmount().negate();
+    }
+
+    private UserSettlementDTO toUserSettlementDto(Long counterpartyId, BigDecimal net, Group group) {
+        if (net.compareTo(BigDecimal.ZERO) == 0) {
+            return null;
         }
-        return result;
+        User counterparty = userRepository.findById(counterpartyId)
+                .orElseThrow(() -> new EntityNotFoundException("Utente non trovato"));
+        Long groupId = group != null ? group.getId() : null;
+        String groupName = group != null ? group.getName() : null;
+        if (net.compareTo(BigDecimal.ZERO) > 0) {
+            return new UserSettlementDTO(new UserDTO(counterparty), net, SettlementDirection.DEBT, groupId, groupName);
+        }
+        return new UserSettlementDTO(new UserDTO(counterparty), net.negate(), SettlementDirection.CREDIT, groupId,
+                groupName);
     }
 }

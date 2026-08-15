@@ -123,7 +123,7 @@ class GroupControllerTest {
         Group group = createGroup("Trip");
         addMember(group, buyer, GroupRole.MEMBER);
         addMember(group, debtor, GroupRole.MEMBER);
-        createBill(group, buyer, debtor, new BigDecimal("100"));
+        createBillWithBalance(group, buyer, debtor, new BigDecimal("100"));
 
         mockMvc.perform(get("/groups/{groupId}/settlement-status", group.getId())
                         .with(user(buyer)))
@@ -140,7 +140,7 @@ class GroupControllerTest {
         Group group = createGroup("Trip");
         addMember(group, admin, GroupRole.ADMIN);
         addMember(group, debtor, GroupRole.MEMBER);
-        createBill(group, admin, debtor, new BigDecimal("100"));
+        createBillWithBalance(group, admin, debtor, new BigDecimal("100"));
 
         mockMvc.perform(delete("/groups/{groupId}", group.getId())
                         .with(user(admin)))

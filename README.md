@@ -7,7 +7,7 @@ Backend REST di **SplitBill**, un'applicazione per dividere le spese tra amici e
 - **Autenticazione**: registrazione con conferma email, login e gestione token JWT.
 - **Utenti**: profilo personale, modifica dati ed eliminazione account (soft delete).
 - **Amicizie**: invio, accettazione, rifiuto, annullamento richieste e gestione lista amici.
-- **Gruppi**: creazione gruppi di spesa, aggiunta di membri, uscita dal gruppo.
+- **Gruppi**: creazione gruppi di spesa, aggiunta di membri, uscita dal gruppo (soft: i debiti/crediti dell'uscente passano a livello globale).
 - **Spese**: creazione di una spesa con suddivisione personalizzata dei debiti, consultazione per gruppo o per utente.
 - **Saldi**: calcolo del bilancio netto di un utente (totale pagato - totale dovuto).
 - **Documentazione API**: esplorabile tramite Swagger UI.
@@ -172,7 +172,7 @@ Gli endpoint di autenticazione sono protetti da rate limiting (default: 10 richi
 | GET    | `/groups`                     | Lista gruppi dell'utente autenticato         |
 | GET    | `/groups/{groupId}`           | Dettaglio di un gruppo                       |
 | POST   | `/groups/addUsers/{groupId}`  | Aggiunge amici a un gruppo                   |
-| DELETE | `/groups/leave/{groupId}`     | Esce da un gruppo                            |
+| DELETE | `/groups/leave/{groupId}`     | Esce da un gruppo; debiti/crediti dell'uscente si estinguono nel gruppo e diventano personali (livello globale) |
 
 ### Spese
 

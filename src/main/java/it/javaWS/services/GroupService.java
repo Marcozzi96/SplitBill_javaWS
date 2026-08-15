@@ -1,12 +1,8 @@
 package it.javaWS.services;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -185,9 +181,10 @@ public class GroupService {
 		if (userGroupsToLeave.isEmpty()) return group;
 
 		// Soft exit: popola dataUscita solo per membri attuali
-		userGroupsToLeave.stream()
+		List<UserGroup> justLeft = userGroupsToLeave.stream()
 				.filter(ug -> ug.getDataUscita() == null)
-				.forEach(ug -> ug.setDataUscita(LocalDate.now()));
+				.peek(ug -> ug.setDataUscita(LocalDate.now()))
+				.toList();
 		userGroupRepository.saveAll(userGroupsToLeave);
 
 		List<UserGroup> activeMembers = userGroupRepository.findActiveByGroupId(groupId);
@@ -195,6 +192,11 @@ public class GroupService {
 		if (activeMembers.isEmpty()) {
 			deleteGroupWithContent(group);
 			return null;
+		}
+
+		// I debiti/crediti degli uscenti si estinguono nel gruppo e passano a livello globale.
+		for (UserGroup userGroup : justLeft) {
+			balanceService.transferUserSettlementsToGlobal(group, userGroup.getUser().getId());
 		}
 
 		// Se tra gli uscenti c'era un admin, promuovi un altro membro attivo
@@ -267,7 +269,8 @@ public class GroupService {
 	
 	@Transactional(readOnly = true)
 	public Set<User> getUsersInGroup(Long groupId) {
-	    List<UserGroup> userGroups = userGroupRepository.findByGroupId(groupId);
+	    // Solo membri attivi: chi è uscito (dataUscita valorizzata) non compare più.
+	    List<UserGroup> userGroups = userGroupRepository.findActiveByGroupId(groupId);
 
 	    return userGroups.stream()
 	            .map(UserGroup::getUser)
@@ -375,32 +378,12 @@ public class GroupService {
 
     @Transactional(readOnly = true)
     public List<SettlementDTO> getGroupSettlementStatus(Long groupId) {
-        Group group = groupRepository.findById(groupId)
+        groupRepository.findById(groupId)
                 .orElseThrow(() -> new GroupNotFoundException("Gruppo non trovato"));
 
-        Map<String, SettlementDTO> settlements = new HashMap<>();
-
-        for (Bill bill : billRepository.findByGroupId(groupId)) {
-            User buyer = bill.getBuyer();
-            for (Transaction transaction : transactionRepository.findByBill_Id(bill.getId())) {
-                User debtor = transaction.getUser();
-                BigDecimal amount = transaction.getAmount().negate();
-
-                if (debtor.getId().equals(buyer.getId()) || amount.compareTo(BigDecimal.ZERO) <= 0) {
-                    continue;
-                }
-
-                String key = debtor.getId() + "->" + buyer.getId();
-                settlements.merge(key,
-                        new SettlementDTO(new UserDTO(debtor), new UserDTO(buyer), amount),
-                        (existing, newSettlement) -> {
-                            existing.setAmount(existing.getAmount().add(newSettlement.getAmount()));
-                            return existing;
-                        });
-            }
-        }
-
-        return new ArrayList<>(settlements.values());
+        // I debiti pendenti si leggono dai settlement pairwise: sono netti di rimborsi
+        // e dei trasferimenti a livello globale dovuti all'uscita di membri.
+        return balanceService.getGroupSettlementStatus(groupId);
     }
 
     @Transactional

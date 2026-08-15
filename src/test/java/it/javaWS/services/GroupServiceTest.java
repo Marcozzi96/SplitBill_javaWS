@@ -3,6 +3,7 @@ package it.javaWS.services;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -21,9 +22,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import it.javaWS.models.dto.GroupMemberDTO;
 import it.javaWS.models.dto.SettlementDTO;
-import it.javaWS.models.entities.Bill;
+import it.javaWS.models.dto.UserDTO;
 import it.javaWS.models.entities.Group;
-import it.javaWS.models.entities.Transaction;
 import it.javaWS.models.entities.User;
 import it.javaWS.models.entities.UserGroup;
 import it.javaWS.models.entities.UserGroupId;
@@ -159,6 +159,65 @@ class GroupServiceTest {
     }
 
     @Test
+    void removeUsersFromGroup_memberLeaves_transfersSettlementsToGlobal() {
+        Group group = new Group();
+        group.setId(1L);
+
+        User admin = new User();
+        admin.setId(1L);
+
+        User member = new User();
+        member.setId(2L);
+
+        UserGroup adminGroup = new UserGroup();
+        adminGroup.setUser(admin);
+        adminGroup.setGroup(group);
+        adminGroup.setRole(GroupRole.ADMIN);
+        adminGroup.setDataUscita(null);
+
+        UserGroup memberGroup = new UserGroup();
+        memberGroup.setUser(member);
+        memberGroup.setGroup(group);
+        memberGroup.setRole(GroupRole.MEMBER);
+        memberGroup.setDataUscita(null);
+
+        when(groupRepository.findById(1L)).thenReturn(Optional.of(group));
+        when(userGroupRepository.findByGroup_IdAndUser_IdIn(1L, Set.of(2L))).thenReturn(Set.of(memberGroup));
+        when(userGroupRepository.findActiveByGroupId(1L)).thenReturn(List.of(adminGroup));
+
+        groupService.removeUsersFromGroup(1L, Set.of(2L));
+
+        // All'uscita i debiti/crediti del membro passano dallo scope gruppo a quello globale.
+        verify(balanceService).transferUserSettlementsToGlobal(group, 2L);
+    }
+
+    @Test
+    void removeUsersFromGroup_lastMember_deletesGroupWithoutTransfer() {
+        Group group = new Group();
+        group.setId(1L);
+
+        User user = new User();
+        user.setId(1L);
+
+        UserGroup userGroup = new UserGroup();
+        userGroup.setUser(user);
+        userGroup.setGroup(group);
+        userGroup.setRole(GroupRole.ADMIN);
+        userGroup.setDataUscita(null);
+
+        when(groupRepository.findById(1L)).thenReturn(Optional.of(group));
+        when(userGroupRepository.findByGroup_IdAndUser_IdIn(1L, Set.of(1L))).thenReturn(Set.of(userGroup));
+        when(userGroupRepository.findActiveByGroupId(1L)).thenReturn(List.of());
+        when(billRepository.findByGroupId(1L)).thenReturn(List.of());
+
+        groupService.removeUsersFromGroup(1L, Set.of(1L));
+
+        // Il gruppo viene eliminato: nessun trasferimento, i dati vengono rimossi.
+        verify(balanceService, never()).transferUserSettlementsToGlobal(any(), any());
+        verify(groupRepository).delete(group);
+    }
+
+    @Test
     void updateGroup_notAdmin_throwsException() {
         Group group = new Group();
         group.setId(1L);
@@ -207,27 +266,15 @@ class GroupServiceTest {
         User buyer = new User();
         buyer.setId(1L);
         buyer.setUsername("buyer");
-
         User debtor = new User();
         debtor.setId(2L);
         debtor.setUsername("debtor");
-
-        Bill bill = new Bill();
-        bill.setId(1L);
-        bill.setBuyer(buyer);
-        bill.setGroup(group);
-
-        Transaction debtorTransaction = new Transaction();
-        debtorTransaction.setUser(debtor);
-        debtorTransaction.setBill(bill);
-        debtorTransaction.setAmount(new BigDecimal("-50"));
-
-        bill.setTransactions(List.of(debtorTransaction));
+        SettlementDTO pending = new SettlementDTO(new UserDTO(debtor), new UserDTO(buyer),
+                new BigDecimal("50"));
 
         when(groupRepository.findById(1L)).thenReturn(Optional.of(group));
         when(userGroupRepository.existsByGroupIdAndUserIdAndRole(1L, 1L, GroupRole.ADMIN)).thenReturn(true);
-        when(billRepository.findByGroupId(1L)).thenReturn(List.of(bill));
-        when(transactionRepository.findByBill_Id(1L)).thenReturn(List.of(debtorTransaction));
+        when(balanceService.getGroupSettlementStatus(1L)).thenReturn(List.of(pending));
 
         assertThatThrownBy(() -> groupService.deleteGroup(1L, false, 1L))
                 .isInstanceOf(PendingSettlementsException.class);
@@ -260,21 +307,10 @@ class GroupServiceTest {
         debtor.setId(2L);
         debtor.setUsername("debtor");
 
-        Bill bill = new Bill();
-        bill.setId(1L);
-        bill.setBuyer(buyer);
-        bill.setGroup(group);
-
-        Transaction debtorTransaction = new Transaction();
-        debtorTransaction.setUser(debtor);
-        debtorTransaction.setBill(bill);
-        debtorTransaction.setAmount(new BigDecimal("-50"));
-
-        bill.setTransactions(List.of(debtorTransaction));
+        SettlementDTO pending = new SettlementDTO(new UserDTO(debtor), new UserDTO(buyer), new BigDecimal("50"));
 
         when(groupRepository.findById(1L)).thenReturn(Optional.of(group));
-        when(billRepository.findByGroupId(1L)).thenReturn(List.of(bill));
-        when(transactionRepository.findByBill_Id(1L)).thenReturn(List.of(debtorTransaction));
+        when(balanceService.getGroupSettlementStatus(1L)).thenReturn(List.of(pending));
 
         List<SettlementDTO> settlements = groupService.getGroupSettlementStatus(1L);
 
@@ -386,7 +422,7 @@ class GroupServiceTest {
         userGroup.setUser(user);
         userGroup.setGroup(group);
 
-        when(userGroupRepository.findByGroupId(1L)).thenReturn(List.of(userGroup));
+        when(userGroupRepository.findActiveByGroupId(1L)).thenReturn(List.of(userGroup));
 
         Set<User> users = groupService.getUsersInGroup(1L);
 
