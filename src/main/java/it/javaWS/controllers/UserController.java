@@ -29,6 +29,7 @@ import it.javaWS.models.dto.UserDTO;
 import it.javaWS.models.entities.User;
 import it.javaWS.services.UserService;
 import it.javaWS.utils.JwtUtil;
+import it.javaWS.utils.UserNotFoundException;
 
 @RestController
 @RequestMapping("/user")
@@ -89,12 +90,17 @@ public class UserController {
 		@ApiResponse(responseCode = "200", description = "Richiesta inviata con successo"),
 		@ApiResponse(responseCode = "208", description = "Richiesta già inviata o esistente"),
 		@ApiResponse(responseCode = "400", description = "Errore nella richiesta"),
-		@ApiResponse(responseCode = "401", description = "Utente non autenticato")
+		@ApiResponse(responseCode = "401", description = "Utente non autenticato"),
+		@ApiResponse(responseCode = "404", description = "Destinatario non trovato")
 	})
 	@PostMapping("/sendFriendshipRequest")
 	public ResponseEntity<String> sendFriendshipRequest(@AuthenticationPrincipal User user, @RequestParam String name,
 			@RequestParam String message) throws Exception {
-		Long userId = userService.loadUserByEmailOrUsername(name, name).getId();
+		// Lookup senza eccezioni di autenticazione: un destinatario inesistente
+		// deve dare 404, non 401 (il FE disconnetterebbe l'utente loggato).
+		Long userId = userService.getByEmailOrUsername(name)
+				.orElseThrow(() -> new UserNotFoundException("Utente non trovato: " + name))
+				.getId();
 		userService.inviaRichiestaAmicizia(user.getId(), userId, message);
 		return ResponseEntity.ok("Richiesta inviata");
 	}

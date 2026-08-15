@@ -1,0 +1,39 @@
+# Configurazione per i test (src/test/resources ha precedenza su src/main/resources).
+# La suite usa sempre H2 in-memory: il profilo dev "reale" usa H2 su file
+# (./data/splitbill), che durante i test sarebbe bloccato dal dev server
+# e comunque renderebbe i test dipendenti da dati preesistenti.
+spring:
+  datasource:
+    url: jdbc:h2:mem:splitbill-test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+  mail:
+    host: localhost
+    port: 25
+    username:
+    password:
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
+jwt:
+  secret: ${JWT_SECRET:}
+  validity: ${JWT_VALIDITY:86400}
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true

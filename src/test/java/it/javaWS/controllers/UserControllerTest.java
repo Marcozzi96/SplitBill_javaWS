@@ -176,6 +176,19 @@ class UserControllerTest {
     }
 
     @Test
+    void sendFriendshipRequest_unknownRecipient_returns404() throws Exception {
+        User user = createUser("mario", "mario@example.com", "Password123!");
+
+        // Un destinatario inesistente deve dare 404, non 401:
+        // il FE tratta il 401 come sessione scaduta e disconnette l'utente.
+        mockMvc.perform(post("/user/sendFriendshipRequest")
+                        .with(user(user))
+                        .param("name", "utente_inesistente")
+                        .param("message", "ciao"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void acceptFriendshipRequest_returnsOk() throws Exception {
         User user = createUser("mario", "mario@example.com", "Password123!");
         User requester = createUser("luigi", "luigi@example.com", "Password123!");

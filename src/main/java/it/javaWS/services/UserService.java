@@ -124,6 +124,14 @@ public class UserService implements UserDetailsService {
 		return users.stream().findFirst().get();
 	}
 
+	// Ricerca per email O username senza eccezioni di autenticazione:
+	// pensata per casi d'uso diversi dal login (es. destinatario richiesta di amicizia),
+	// dove un utente mancante non è un 401 ma un 404.
+	@Transactional(readOnly = true)
+	public Optional<User> getByEmailOrUsername(String value) {
+		return userRepository.findByEmailOrUsernameIgnoreCase(value, value).stream().findFirst();
+	}
+
 	@Transactional(readOnly = true)
 	public User getByUsername(String username) {
 		return userRepository.findByUsernameIgnoreCase(username).orElse(null);
