@@ -40,7 +40,8 @@ public class BillDTO {
 		this.creationDate = bill.getDate();
 
 		this.buyer = new UserDTO(bill.getBuyer());
-		this.groupId = bill.getGroup().getId();
+		// Spese personali (tra amici) non hanno gruppo.
+		this.groupId = bill.getGroup() != null ? bill.getGroup().getId() : null;
 
 		
 

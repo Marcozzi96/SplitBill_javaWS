@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.hibernate.Hibernate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -286,8 +287,13 @@ public class GroupService {
 	
 	@Transactional(readOnly = true)
     public Set<UserGroup> getUserGroup(Long groupId, Set<Long> userIds){
-		return userGroupRepository.findByGroup_IdAndUser_IdIn(groupId, userIds);
-	}
+    	Set<UserGroup> userGroups = userGroupRepository.findByGroup_IdAndUser_IdIn(groupId, userIds);
+    	// I chiamanti usano gli User fuori dalla sessione (es. BillController li inserisce
+    	// in un Set: hashCode su proxy non inizializzato -> LazyInitializationException).
+    	// Inizializzarli qui, finché la sessione è aperta.
+    	userGroups.forEach(ug -> Hibernate.initialize(ug.getUser()));
+    	return userGroups;
+    }
 
     @Transactional(readOnly = true)
     public Set<UserGroup> getByUser(User user) {

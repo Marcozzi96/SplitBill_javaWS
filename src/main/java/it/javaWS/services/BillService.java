@@ -24,6 +24,7 @@ import it.javaWS.models.entities.User;
 import it.javaWS.models.entities.UserGroup;
 import it.javaWS.repositories.BillRepository;
 import it.javaWS.repositories.TransactionRepository;
+import it.javaWS.repositories.UserRepository;
 import it.javaWS.utils.BillNotFoundException;
 import it.javaWS.utils.InvalidBillException;
 import it.javaWS.utils.UnauthorizedAccessException;
@@ -35,13 +36,18 @@ public class BillService {
     private final TransactionRepository transactionRepository;
     private final BalanceService balanceService;
     private final GroupService groupService;
+    private final UserRepository userRepository;
+    private final FriendshipService friendshipService;
 
     public BillService(BillRepository billRepository, TransactionRepository transactionRepository,
-            BalanceService balanceService, GroupService groupService) {
+            BalanceService balanceService, GroupService groupService, UserRepository userRepository,
+            FriendshipService friendshipService) {
         this.billRepository = billRepository;
         this.transactionRepository = transactionRepository;
         this.balanceService = balanceService;
         this.groupService = groupService;
+        this.userRepository = userRepository;
+        this.friendshipService = friendshipService;
     }
 
     @Transactional
@@ -182,14 +188,24 @@ public class BillService {
 
     @Transactional
     public BillDTO updateBill(Long billId, Long requestingUserId, String description,
-            BigDecimal amount, String notes, Map<Long, BigDecimal> usersDebit) {
+            BigDecimal amount, String notes, Long buyerId, Map<Long, BigDecimal> usersDebit) {
 
         Bill bill = getBill(billId);
 
-        boolean isBuyer = bill.getBuyer().getId().equals(requestingUserId);
-        boolean isAdmin = groupService.isUserAdminOfGroup(bill.getGroup().getId(), requestingUserId);
-        if (!isBuyer && !isAdmin) {
-            throw new UnauthorizedAccessException("Non sei autorizzato a modificare questa spesa");
+        Group group = bill.getGroup();
+        if (group != null) {
+            // Qualsiasi membro attivo del gruppo può modificare le spese del gruppo.
+            if (!groupService.existsByGroupIdAndUserId(group.getId(), requestingUserId)) {
+                throw new UnauthorizedAccessException("Non sei autorizzato a modificare questa spesa");
+            }
+        } else {
+            // Spesa personale: può modificarla chiunque sia coinvolto (buyer o debitore).
+            boolean involved = bill.getBuyer().getId().equals(requestingUserId)
+                    || transactionRepository.findByBill_Id(billId).stream()
+                            .anyMatch(t -> t.getUser().getId().equals(requestingUserId));
+            if (!involved) {
+                throw new UnauthorizedAccessException("Non sei autorizzato a modificare questa spesa");
+            }
         }
 
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
@@ -207,10 +223,38 @@ public class BillService {
                     + ") non corrisponde all'importo totale (" + amount + ")");
         }
 
+        // Chi ha pagato: default il buyer attuale; buyerId consente di cambiarlo.
+        User buyer = bill.getBuyer();
+        if (buyerId != null && !buyerId.equals(buyer.getId())) {
+            buyer = userRepository.findById(buyerId)
+                    .orElseThrow(() -> new InvalidBillException("Buyer non trovato"));
+        }
+        final Long effectiveBuyerId = buyer.getId();
+
         Set<Long> debtorIds = usersDebit.keySet();
-        Set<UserGroup> userGroups = groupService.getUserGroup(bill.getGroup().getId(), debtorIds);
-        if (userGroups.size() != debtorIds.size()) {
-            throw new InvalidBillException("Non tutti i debitori fanno parte del gruppo");
+        List<User> debtors;
+        if (group != null) {
+            // Il buyer deve essere un membro attivo del gruppo.
+            if (!groupService.existsByGroupIdAndUserId(group.getId(), effectiveBuyerId)) {
+                throw new InvalidBillException("Il buyer deve far parte del gruppo");
+            }
+            Set<UserGroup> userGroups = groupService.getUserGroup(group.getId(), debtorIds);
+            if (userGroups.size() != debtorIds.size()) {
+                throw new InvalidBillException("Non tutti i debitori fanno parte del gruppo");
+            }
+            debtors = userGroups.stream().map(UserGroup::getUser).toList();
+        } else {
+            // Spesa personale: debitori esistenti e (tranne il buyer) amici del buyer.
+            debtors = userRepository.findAllById(debtorIds);
+            if (debtors.size() != debtorIds.size()) {
+                throw new InvalidBillException("Uno o più debitori non esistono");
+            }
+            Set<Long> otherIds = debtorIds.stream()
+                    .filter(id -> !id.equals(effectiveBuyerId))
+                    .collect(Collectors.toSet());
+            if (!otherIds.isEmpty() && !friendshipService.areAllFriends(effectiveBuyerId, otherIds)) {
+                throw new InvalidBillException("I debitori di una spesa personale devono essere amici del buyer");
+            }
         }
 
         balanceService.revertBill(bill);
@@ -220,13 +264,12 @@ public class BillService {
         bill.setAmount(amount);
         bill.setNotes(notes);
         bill.setDate(LocalDate.now());
+        bill.setBuyer(buyer);
         bill.setTransactions(new LinkedList<>());
 
-        User buyer = bill.getBuyer();
-        Group group = bill.getGroup();
         BigDecimal buyerCredit = BigDecimal.ZERO;
 
-        for (User debtor : userGroups.stream().map(UserGroup::getUser).toList()) {
+        for (User debtor : debtors) {
             BigDecimal debit = usersDebit.get(debtor.getId());
             if (!debtor.getId().equals(buyer.getId())) {
                 Transaction t = new Transaction();

@@ -19,6 +19,9 @@ Funzionalità principali:
 - Gestione gruppi di spesa (creazione, aggiunta membri, uscita soft: all'uscita i debiti/crediti dell'uscente si estinguono nel gruppo e vengono trasferiti a livello globale, cioè settlement con `group_id` null).
 - I controlli di membership (`UserGroupRepository.existsByGroupIdAndUserId*`) considerano solo i membri attivi (`dataUscita` null): chi è uscito non può più operare sul gruppo.
 - Gestione spese con suddivisione personalizzata dei debiti.
+  - `POST /bills/new`: `groupId` opzionale — senza gruppo la spesa è **personale** (tra amici); i debitori devono esistere ed essere amici del buyer. Update/delete: qualsiasi membro attivo del gruppo; per le spese personali chiunque sia coinvolto (buyer o debitore).
+  - `buyerId` opzionale in create/update ("Pagato da"): default l'utente autenticato in creazione, il buyer attuale in modifica. Nel gruppo il buyer deve essere un membro attivo.
+  - Bilanci e settlement pairwise supportano `group_id` null (spese personali e uscite da gruppo).
 - Calcolo del saldo netto di un utente.
 - Documentazione API tramite Swagger UI.
 
@@ -66,7 +69,6 @@ src/main/java/it/javaWS/
 │   ├── GroupController.java
 │   ├── BillController.java
 │   ├── BalanceController.java
-│   ├── TransactionController.java
 │   ├── StatusController.java
 │   └── advice/
 │       └── GlobalExceptionHandler.java
@@ -75,7 +77,6 @@ src/main/java/it/javaWS/
 │   ├── FriendshipService.java
 │   ├── GroupService.java
 │   ├── BillService.java
-│   ├── TransactionService.java
 │   ├── BalanceService.java
 │   └── AuthTokenService.java        # Token opachi registrazione/reset password
 ├── repositories/                    # Spring Data JPA
@@ -132,6 +133,7 @@ src/test/java/it/javaWS/
 ├── services/                        # Test di unità con Mockito
 │   ├── BillServiceTest.java
 │   ├── GroupServiceTest.java
+│   ├── GroupServiceLazyInitTest.java # Regressione: proxy lazy usati fuori dalla sessione (non @Transactional)
 │   ├── AuthTokenServiceTest.java
 │   └── UserServiceTest.java
 ├── controllers/                     # Test di integrazione REST
@@ -139,8 +141,7 @@ src/test/java/it/javaWS/
 │   ├── UserControllerTest.java
 │   ├── BillControllerTest.java
 │   ├── GroupControllerTest.java
-│   ├── BalanceControllerTest.java
-│   └── TransactionControllerTest.java
+│   └── BalanceControllerTest.java
 ├── controllers/advice/
 │   └── GlobalExceptionHandlerTest.java
 └── models/entities/
@@ -251,6 +252,7 @@ Il profilo attivo è determinato da `SPRING_PROFILES_ACTIVE` (default `dev`).
   - `equals`/`hashCode` solo sull'id (`@EqualsAndHashCode(onlyExplicitlyIncluded = true)`).
   - Relazioni lazy di default (`FetchType.LAZY`).
 - **Transactional**: annotare i metodi di sola lettura con `@Transactional(readOnly = true)`.
+  - Attenzione ai **proxy lazy che escono dalla transazione**: se il chiamante usa l'entità fuori dalla sessione (es. in collezioni hash-based o per costruire DTO nel controller), inizializzare le associazioni lazy dentro il metodo (`Hibernate.initialize(...)`), altrimenti `LazyInitializationException`. Regression test: `GroupServiceLazyInitTest`.
 - **Gestione errori**: centralizzata in `GlobalExceptionHandler` con `@RestControllerAdvice`.
 - **Logging**: usare SLF4J (`LoggerFactory`); evitare `System.out.println`.
 - **Sicurezza**: non committare mai chiavi JWT, password o URL di database nelle configurazioni.
@@ -273,7 +275,7 @@ Il profilo attivo è determinato da `SPRING_PROFILES_ACTIVE` (default `dev`).
 - CSRF disabilitato perché l'autenticazione non usa cookie/sessioni.
 - Endpoint pubblici: `/auth/**`, `/status/**`, `/swagger-ui/**`, `/v3/api-docs/**`, `/swagger-ui.html`, `/h2-console/**`.
 - Tutti gli altri endpoint richiedono l'header `Authorization: Bearer <token>`.
-- CORS configurato con origini esplicite (`http://localhost:3000`, `https://fe-splitbill.vercel.app`).
+- CORS configurato con origini esplicite (`http://localhost:3000`, `https://fe-splitbill.vercel.app`) più `allowedOriginPatterns` per il dev in LAN (`localhost:*` e range privati `192.168.*`, `10.*`, `172.*` con qualsiasi porta).
 - Presente un filtro `AuthRateLimitFilter` che applica rate limiting in-memory (finestra fissa per IP+endpoint) su `POST /auth/login|register|forgotPassword|resetPassword`; oltre soglia risponde `429`.
 - La chiave JWT viene decodificata da Base64 in `JwtUtil` (`Decoders.BASE64`); se `jwt.secret` è vuota (solo dev), viene generata una chiave HS512 effimera con warning.
 - Presente un filtro `SuspiciousRequestFilter` che blocca pattern di richieste sospette (es. `${jndi:...`).

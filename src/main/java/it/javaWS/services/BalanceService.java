@@ -178,7 +178,8 @@ public class BalanceService {
 
     @Transactional
     public void applyBill(Bill bill) {
-        if (bill == null || bill.getBuyer() == null || bill.getGroup() == null) {
+        // group null = spesa personale: aggiorna solo saldi globali e settlement personali.
+        if (bill == null || bill.getBuyer() == null) {
             return;
         }
 
@@ -216,7 +217,8 @@ public class BalanceService {
 
     @Transactional
     public void revertBill(Bill bill) {
-        if (bill == null || bill.getBuyer() == null || bill.getGroup() == null) {
+        // group null = spesa personale: aggiorna solo saldi globali e settlement personali.
+        if (bill == null || bill.getBuyer() == null) {
             return;
         }
 
@@ -352,11 +354,14 @@ public class BalanceService {
         userBalance.setTotalOwed(userBalance.getTotalOwed().add(owedDelta));
         userBalance.setNetBalance(userBalance.getTotalPaid().subtract(userBalance.getTotalOwed()));
 
-        UserGroupBalance groupBalance = userGroupBalanceRepository.findByUserIdAndGroupId(user.getId(), group.getId())
-                .orElseGet(() -> createUserGroupBalance(user, group));
-        groupBalance.setTotalPaid(groupBalance.getTotalPaid().add(paidDelta));
-        groupBalance.setTotalOwed(groupBalance.getTotalOwed().add(owedDelta));
-        groupBalance.setNetBalance(groupBalance.getTotalPaid().subtract(groupBalance.getTotalOwed()));
+        // Niente saldo di gruppo per le spese personali (group null).
+        if (group != null) {
+            UserGroupBalance groupBalance = userGroupBalanceRepository.findByUserIdAndGroupId(user.getId(), group.getId())
+                    .orElseGet(() -> createUserGroupBalance(user, group));
+            groupBalance.setTotalPaid(groupBalance.getTotalPaid().add(paidDelta));
+            groupBalance.setTotalOwed(groupBalance.getTotalOwed().add(owedDelta));
+            groupBalance.setNetBalance(groupBalance.getTotalPaid().subtract(groupBalance.getTotalOwed()));
+        }
     }
 
     private UserBalance createUserBalance(User user) {

@@ -22,6 +22,7 @@ import it.javaWS.models.entities.Transaction;
 import it.javaWS.models.entities.User;
 import it.javaWS.repositories.BillRepository;
 import it.javaWS.repositories.TransactionRepository;
+import it.javaWS.repositories.UserRepository;
 import it.javaWS.utils.InvalidBillException;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,6 +36,15 @@ class BillServiceTest {
 
     @Mock
     private BalanceService balanceService;
+
+    @Mock
+    private GroupService groupService;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private FriendshipService friendshipService;
 
     @InjectMocks
     private BillService billService;

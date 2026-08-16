@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.hibernate.Hibernate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -53,6 +54,16 @@ public class UserService implements UserDetailsService {
 	@Transactional(readOnly = true)
 	public Optional<User> getUser(Long id) {
 		return userRepository.findById(id);
+	}
+
+	// Lookup multiplo per id (es. debitori di una spesa personale, senza gruppo).
+	// I chiamanti usano gli User fuori dalla sessione: inizializzarli qui
+	// (stessa motivazione di GroupService.getUserGroup).
+	@Transactional(readOnly = true)
+	public Set<User> getUsersByIds(Set<Long> ids) {
+		Set<User> users = Set.copyOf(userRepository.findAllById(ids));
+		users.forEach(Hibernate::initialize);
+		return users;
 	}
 
 	@Transactional(readOnly = true)

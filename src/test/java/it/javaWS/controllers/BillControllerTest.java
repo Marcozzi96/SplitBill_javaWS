@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -23,13 +24,16 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import it.javaWS.enums.StatoAmicizia;
 import it.javaWS.models.entities.Bill;
+import it.javaWS.models.entities.Friendship;
 import it.javaWS.models.entities.Group;
 import it.javaWS.models.entities.Transaction;
 import it.javaWS.models.entities.User;
 import it.javaWS.models.entities.UserGroup;
 import it.javaWS.models.enums.GroupRole;
 import it.javaWS.repositories.BillRepository;
+import it.javaWS.repositories.FriendshipRepository;
 import it.javaWS.repositories.GroupRepository;
 import it.javaWS.repositories.TransactionRepository;
 import it.javaWS.repositories.UserGroupRepository;
@@ -66,6 +70,9 @@ class BillControllerTest {
     @Autowired
     private BalanceService balanceService;
 
+    @Autowired
+    private FriendshipRepository friendshipRepository;
+
     @Test
     void deleteBill_asBuyer_returnsOk() throws Exception {
         User buyer = createUser("buyer", "buyer@example.com");
@@ -95,7 +102,8 @@ class BillControllerTest {
     }
 
     @Test
-    void deleteBill_asOtherMember_returnsUnauthorized() throws Exception {
+    void deleteBill_asMember_returnsOk() throws Exception {
+        // Qualsiasi membro attivo del gruppo può eliminare una spesa.
         User buyer = createUser("buyer", "buyer@example.com");
         User member = createUser("member", "member@example.com");
         User other = createUser("other", "other@example.com");
@@ -107,6 +115,21 @@ class BillControllerTest {
 
         mockMvc.perform(delete("/bills/{id}", bill.getId())
                         .with(user(member)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void deleteBill_asNonMember_returnsUnauthorized() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User outsider = createUser("outsider", "outsider@example.com");
+        User other = createUser("other", "other@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, other, GroupRole.MEMBER);
+        Bill bill = createBill(group, buyer, other, new BigDecimal("100"));
+
+        mockMvc.perform(delete("/bills/{id}", bill.getId())
+                        .with(user(outsider)))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -256,7 +279,8 @@ class BillControllerTest {
     }
 
     @Test
-    void updateBill_asOtherMember_returnsUnauthorized() throws Exception {
+    void updateBill_asMember_returnsOk() throws Exception {
+        // Qualsiasi membro attivo del gruppo può modificare una spesa.
         User buyer = createUser("buyer", "buyer@example.com");
         User member = createUser("member", "member@example.com");
         User other = createUser("other", "other@example.com");
@@ -272,6 +296,31 @@ class BillControllerTest {
 
         mockMvc.perform(put("/bills/{id}", bill.getId())
                         .with(user(member))
+                        .param("description", "Member Updated")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.description").value("Member Updated"));
+    }
+
+    @Test
+    void updateBill_asNonMember_returnsUnauthorized() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User outsider = createUser("outsider", "outsider@example.com");
+        User other = createUser("other", "other@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, other, GroupRole.MEMBER);
+        Bill bill = createBill(group, buyer, other, new BigDecimal("100"));
+
+        Map<Long, BigDecimal> debits = Map.of(
+                other.getId(), new BigDecimal("50"),
+                buyer.getId(), new BigDecimal("50"));
+
+        mockMvc.perform(put("/bills/{id}", bill.getId())
+                        .with(user(outsider))
                         .param("description", "Hacked")
                         .param("amount", "100")
                         .param("notes", "")
@@ -325,6 +374,262 @@ class BillControllerTest {
                 .andExpect(jsonPath("$.totalPages").value(2));
     }
 
+    @Test
+    void createBill_withoutGroupId_personalBillBetweenFriends_returnsOk() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User friend = createUser("friend", "friend@example.com");
+        makeFriends(buyer, friend);
+
+        Map<Long, BigDecimal> debits = Map.of(
+                friend.getId(), new BigDecimal("40"),
+                buyer.getId(), new BigDecimal("60"));
+
+        mockMvc.perform(post("/bills/new")
+                        .with(user(buyer))
+                        .param("description", "Pizza")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.groupId").value(org.hamcrest.Matchers.nullValue()));
+    }
+
+    @Test
+    void createBill_personalBill_debtorNotFriend_returnsBadRequest() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User stranger = createUser("stranger", "stranger@example.com");
+
+        Map<Long, BigDecimal> debits = Map.of(
+                stranger.getId(), new BigDecimal("50"),
+                buyer.getId(), new BigDecimal("50"));
+
+        mockMvc.perform(post("/bills/new")
+                        .with(user(buyer))
+                        .param("description", "Pizza")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createBill_personalBill_debtorNotFound_returnsBadRequest() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+
+        Map<Long, BigDecimal> debits = Map.of(
+                9999L, new BigDecimal("50"),
+                buyer.getId(), new BigDecimal("50"));
+
+        mockMvc.perform(post("/bills/new")
+                        .with(user(buyer))
+                        .param("description", "Pizza")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateBill_personalBill_asBuyer_returnsOk() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User friend = createUser("friend", "friend@example.com");
+        makeFriends(buyer, friend);
+        Bill bill = createBill(null, buyer, friend, new BigDecimal("100"));
+
+        Map<Long, BigDecimal> debits = Map.of(
+                friend.getId(), new BigDecimal("70"),
+                buyer.getId(), new BigDecimal("30"));
+
+        mockMvc.perform(put("/bills/{id}", bill.getId())
+                        .with(user(buyer))
+                        .param("description", "Updated")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.description").value("Updated"));
+    }
+
+    @Test
+    void updateBill_personalBill_asDebtor_returnsOk() throws Exception {
+        // Sulle spese personali può modificare chiunque sia coinvolto (buyer o debitore).
+        User buyer = createUser("buyer", "buyer@example.com");
+        User friend = createUser("friend", "friend@example.com");
+        makeFriends(buyer, friend);
+        Bill bill = createBill(null, buyer, friend, new BigDecimal("100"));
+
+        Map<Long, BigDecimal> debits = Map.of(
+                friend.getId(), new BigDecimal("50"),
+                buyer.getId(), new BigDecimal("50"));
+
+        mockMvc.perform(put("/bills/{id}", bill.getId())
+                        .with(user(friend))
+                        .param("description", "Updated by debtor")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.description").value("Updated by debtor"));
+    }
+
+    @Test
+    void updateBill_personalBill_asUnrelatedUser_returnsUnauthorized() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User friend = createUser("friend", "friend@example.com");
+        User outsider = createUser("outsider", "outsider@example.com");
+        makeFriends(buyer, friend);
+        Bill bill = createBill(null, buyer, friend, new BigDecimal("100"));
+
+        Map<Long, BigDecimal> debits = Map.of(
+                friend.getId(), new BigDecimal("50"),
+                buyer.getId(), new BigDecimal("50"));
+
+        mockMvc.perform(put("/bills/{id}", bill.getId())
+                        .with(user(outsider))
+                        .param("description", "Hacked")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void deleteBill_personalBill_asDebtor_returnsOk() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User friend = createUser("friend", "friend@example.com");
+        makeFriends(buyer, friend);
+        Bill bill = createBill(null, buyer, friend, new BigDecimal("100"));
+
+        mockMvc.perform(delete("/bills/{id}", bill.getId())
+                        .with(user(friend)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void deleteBill_personalBill_asUnrelatedUser_returnsUnauthorized() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User friend = createUser("friend", "friend@example.com");
+        User outsider = createUser("outsider", "outsider@example.com");
+        makeFriends(buyer, friend);
+        Bill bill = createBill(null, buyer, friend, new BigDecimal("100"));
+
+        mockMvc.perform(delete("/bills/{id}", bill.getId())
+                        .with(user(outsider)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void deleteBill_personalBill_asBuyer_returnsOk() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User friend = createUser("friend", "friend@example.com");
+        makeFriends(buyer, friend);
+        Bill bill = createBill(null, buyer, friend, new BigDecimal("100"));
+
+        mockMvc.perform(delete("/bills/{id}", bill.getId())
+                        .with(user(buyer)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void createBill_groupBill_withBuyerId_returnsOk() throws Exception {
+        User creator = createUser("creator", "creator@example.com");
+        User payer = createUser("payer", "payer@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, creator, GroupRole.MEMBER);
+        addMember(group, payer, GroupRole.MEMBER);
+
+        // Ha pagato un altro membro del gruppo.
+        Map<Long, BigDecimal> debits = Map.of(
+                payer.getId(), new BigDecimal("50"),
+                creator.getId(), new BigDecimal("50"));
+
+        mockMvc.perform(post("/bills/new")
+                        .with(user(creator))
+                        .param("description", "Dinner")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .param("groupId", group.getId().toString())
+                        .param("buyerId", payer.getId().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.buyer.userId").value(payer.getId()));
+    }
+
+    @Test
+    void createBill_buyerNotInGroup_returnsBadRequest() throws Exception {
+        User creator = createUser("creator", "creator@example.com");
+        User outsider = createUser("outsider", "outsider@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, creator, GroupRole.MEMBER);
+
+        Map<Long, BigDecimal> debits = Map.of(creator.getId(), new BigDecimal("100"));
+
+        mockMvc.perform(post("/bills/new")
+                        .with(user(creator))
+                        .param("description", "Dinner")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .param("groupId", group.getId().toString())
+                        .param("buyerId", outsider.getId().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createBill_personalBill_friendIsBuyer_returnsOk() throws Exception {
+        User me = createUser("me", "me@example.com");
+        User friend = createUser("friend", "friend@example.com");
+        makeFriends(me, friend);
+
+        // Ha pagato l'amico: io sono l'unico debitore.
+        Map<Long, BigDecimal> debits = Map.of(me.getId(), new BigDecimal("100"));
+
+        mockMvc.perform(post("/bills/new")
+                        .with(user(me))
+                        .param("description", "Concerto")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .param("buyerId", friend.getId().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.buyer.userId").value(friend.getId()))
+                .andExpect(jsonPath("$.groupId").value(org.hamcrest.Matchers.nullValue()));
+    }
+
+    @Test
+    void updateBill_changeBuyer_returnsOk() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User payer = createUser("payer", "payer@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, payer, GroupRole.MEMBER);
+        Bill bill = createBill(group, buyer, payer, new BigDecimal("100"));
+
+        Map<Long, BigDecimal> debits = Map.of(
+                payer.getId(), new BigDecimal("50"),
+                buyer.getId(), new BigDecimal("50"));
+
+        mockMvc.perform(put("/bills/{id}", bill.getId())
+                        .with(user(buyer))
+                        .param("description", "Test bill")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .param("buyerId", payer.getId().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.buyer.userId").value(payer.getId()));
+    }
+
     private User createUser(String username, String email) {
         User user = new User();
         user.setUsername(username);
@@ -349,6 +654,23 @@ class BillControllerTest {
         userGroup.setDataIngresso(LocalDate.now());
         userGroup.setRole(role);
         userGroupRepository.save(userGroup);
+    }
+
+    // Amicizia accettata: il vincolo DB richiede user1_id < user2_id.
+    private void makeFriends(User a, User b) {
+        Friendship friendship = new Friendship();
+        if (a.getId() < b.getId()) {
+            friendship.setUser1(a);
+            friendship.setUser2(b);
+        } else {
+            friendship.setUser1(b);
+            friendship.setUser2(a);
+        }
+        friendship.setUserToBeConfirmed(b);
+        friendship.setMessaggio("test");
+        friendship.setStato(StatoAmicizia.ACCETTATA);
+        friendship.setDataRichiesta(LocalDateTime.now());
+        friendshipRepository.save(friendship);
     }
 
     private Bill createBill(Group group, User buyer, User debtor, BigDecimal amount) {
