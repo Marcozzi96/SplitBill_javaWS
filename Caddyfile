@@ -1,0 +1,11 @@
+# I domini arrivano dalle variabili d'ambiente (vedi .env / docker-compose.yml).
+# Caddy ottiene e rinnova automaticamente i certificati Let's Encrypt.
+# Senza dominio proprio si può usare sslip.io, es. APP_DOMAIN=app.1.2.3.4.sslip.io
+
+{$APP_DOMAIN} {
+	reverse_proxy frontend:80
+}
+
+{$API_DOMAIN} {
+	reverse_proxy backend:8080
+}

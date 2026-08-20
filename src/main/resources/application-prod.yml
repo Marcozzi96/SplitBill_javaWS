@@ -26,6 +26,8 @@ jwt:
 
 app:
   open-link: ${OPEN_LINK}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
 
 springdoc:
   api-docs:

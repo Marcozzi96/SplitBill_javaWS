@@ -232,6 +232,7 @@ Il profilo attivo è determinato da `SPRING_PROFILES_ACTIVE` (default `dev`).
 | `MAIL_PORT` | Porta SMTP |
 | `MAIL_USERNAME` | Indirizzo email mittente |
 | `MAIL_PASSWORD` | Password o app-specific password |
+| `CORS_ALLOWED_ORIGINS` | Origini CORS aggiuntive separate da virgola (es. `https://app.example.com`); lette da `GlobalCorsConfig` via `app.cors.allowed-origins` |
 | `OPEN_LINK` | URL base frontend |
 | `PORT` | Porta del server (default `8080`) |
 
@@ -286,25 +287,21 @@ Il profilo attivo è determinato da `SPRING_PROFILES_ACTIVE` (default `dev`).
 
 ## Deploy
 
-È incluso un `Dockerfile` multi-stage:
+Il deploy di produzione avviene su VPS con **Docker Compose** (guida completa in `DEPLOY.md`):
 
-```dockerfile
-# Stage build
-FROM maven:3.9.6-eclipse-temurin-21 AS build
-# Stage runtime
-FROM eclipse-temurin:21-jdk
-ENV SPRING_PROFILES_ACTIVE=prod
-EXPOSE 8080
-```
+- `docker-compose.yml` — orchestra `db` (PostgreSQL 16), `backend`, `frontend` (buildato dal repo `../SplitBill` clonato affiancato) e `caddy` (HTTPS automatico con Let's Encrypt).
+- `Caddyfile` — reverse proxy: `APP_DOMAIN` → frontend, `API_DOMAIN` → backend (domini da `.env`).
+- `.env.example` — template delle variabili d'ambiente del server.
+- `.github/workflows/deploy.yml` — deploy automatico del backend a ogni push su `main` (SSH verso il VPS; secret `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`).
 
-Comandi Docker:
+Il `Dockerfile` multi-stage (build con Maven, runtime `eclipse-temurin:21-jre`) resta usabile da solo:
 
 ```bash
 docker build -t splitbill-backend .
 docker run -p 8080:8080 --env-file .env splitbill-backend
 ```
 
-L'applicazione è configurata per essere deployata su [Railway](https://railway.app/), leggendo le variabili d'ambiente dal provider.
+L'applicazione resta compatibile con il deploy su [Railway](https://railway.app/), leggendo le variabili d'ambiente dal provider.
 
 ---
 
@@ -321,3 +318,4 @@ L'applicazione è configurata per essere deployata su [Railway](https://railway.
 - `agent.md` — regole di sviluppo e convenzioni.
 - `pom.xml` — dipendenze e configurazione Maven.
 - `Dockerfile` — immagine Docker multi-stage.
+- `DEPLOY.md` — guida deploy VPS con Docker Compose e CI/CD GitHub Actions.

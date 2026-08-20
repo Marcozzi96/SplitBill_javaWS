@@ -1,0 +1,31 @@
+# Deploy automatico del backend sul VPS ad ogni push su main.
+# Richiede i secret del repository: VPS_HOST, VPS_USER, VPS_SSH_KEY (chiave privata).
+# Sul server i repo sono clonati in ~/splitbill/javaWS e ~/splitbill/SplitBill (vedi DEPLOY.md).
+name: Deploy backend
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Evita deploy sovrapposti se arrivano più push ravvicinati
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/splitbill/javaWS
+            git pull
+            docker compose up -d --build backend
+            docker image prune -f

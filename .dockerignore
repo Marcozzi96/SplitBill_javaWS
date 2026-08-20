@@ -1,0 +1,14 @@
+.git
+.github
+target
+data
+*.md
+!README.md
+.settings
+.classpath
+.project
+docker-compose.yml
+Caddyfile
+.env
+.env.*
+!.env.example
