@@ -134,4 +134,17 @@ class GoogleAuthServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Login con Google non configurato");
     }
+
+    // Nessuno stub su verificaIdToken: il token malformato fa lanciare
+    // IllegalArgumentException dalla libreria Google (senza rete) e il servizio
+    // deve convertirla in BadCredentialsException.
+    @Test
+    void loginConGoogle_tokenMalformato_throwsBadCredentials() {
+        GoogleAuthService service = newService("client-id");
+
+        assertThatThrownBy(() -> service.loginConGoogle("token-malformato"))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Token Google non valido");
+        verify(userService, never()).getByEmail(anyString());
+    }
 }

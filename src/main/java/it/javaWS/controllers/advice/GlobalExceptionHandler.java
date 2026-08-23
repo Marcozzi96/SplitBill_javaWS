@@ -118,11 +118,13 @@ public class GlobalExceptionHandler {
     }
 
     private ResponseEntity<Map<String, Object>> buildResponse(HttpStatus status, String message) {
+        // Map.of non accetta null: alcune eccezioni (es. IllegalArgumentException) hanno message null
+        String safeMessage = message != null ? message : status.getReasonPhrase();
         return ResponseEntity.status(status).body(Map.of(
                 "timestamp", Instant.now().toString(),
                 "status", status.value(),
                 "error", status.getReasonPhrase(),
-                "message", message
+                "message", safeMessage
         ));
     }
 }

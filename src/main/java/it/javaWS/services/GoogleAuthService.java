@@ -73,7 +73,8 @@ public class GoogleAuthService {
                 throw new BadCredentialsException("Token Google non valido");
             }
             return token.getPayload();
-        } catch (GeneralSecurityException | IOException e) {
+        } catch (GeneralSecurityException | IOException | IllegalArgumentException e) {
+            // IllegalArgumentException: token malformato (la libreria lo lancia prima della verifica)
             log.warn("Verifica dell'ID token Google fallita: {}", e.getMessage());
             throw new BadCredentialsException("Token Google non valido");
         }
