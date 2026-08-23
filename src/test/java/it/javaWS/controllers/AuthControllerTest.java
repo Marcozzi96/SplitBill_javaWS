@@ -1,6 +1,7 @@
 package it.javaWS.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -8,6 +9,7 @@ import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpMethod;
@@ -25,6 +27,7 @@ import it.javaWS.models.entities.User;
 import it.javaWS.repositories.AuthTokenRepository;
 import it.javaWS.repositories.UserRepository;
 import it.javaWS.services.AuthTokenService;
+import it.javaWS.services.UserService;
 import it.javaWS.utils.EmailUtil;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -120,6 +123,65 @@ class AuthControllerTest {
         ResponseEntity<String> response = restTemplate.postForEntity("/auth/register", request, String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void register_withDuplicateEmailDifferentCase_returnsBadRequest() {
+        createUser("mario", "mario@example.com", "Password123!");
+        AuthRequest request = new AuthRequest("other", "Password123!", "MARIO@example.com");
+
+        ResponseEntity<String> response = restTemplate.postForEntity("/auth/register", request, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void register_withGmailDotVariantOfExistingEmail_returnsBadRequest() {
+        createUser("jorge", "giorgioarmignacco97@gmail.com", "Password123!");
+        // Per Gmail i punti nel local part non contano: è la stessa casella
+        AuthRequest request = new AuthRequest("giorgio", "Password123!", "giorgio.armignacco97@gmail.com");
+
+        ResponseEntity<String> response = restTemplate.postForEntity("/auth/register", request, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void register_withGmailDotsAndUpperCase_keepsTypedEmailAndCanonicalizesForLookup() {
+        AuthRequest request = new AuthRequest("luigi", "Password123!", "Luigi.Verdi@gmail.com");
+
+        ResponseEntity<String> response = restTemplate.postForEntity("/auth/register", request, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        // L'email nel token (e poi nel profilo) resta come l'ha scritta l'utente
+        AuthToken token = authTokenRepository.findAll().get(0);
+        assertThat(token.getEmail()).isEqualTo("Luigi.Verdi@gmail.com");
+
+        // Dopo la conferma: email salvata com'è, canonical normalizzata
+        restTemplate.exchange("/auth/confirmEmail?token={token}", HttpMethod.GET, null, String.class, token.getToken());
+        User saved = userRepository.findByUsernameIgnoreCase("luigi").orElseThrow();
+        assertThat(saved.getEmail()).isEqualTo("Luigi.Verdi@gmail.com");
+        assertThat(saved.getEmailCanonical()).isEqualTo("luigiverdi@gmail.com");
+
+        // Il login funziona anche con la forma senza punti e minuscola
+        ResponseEntity<String> login = restTemplate.postForEntity("/auth/login",
+                new AuthRequest(null, "Password123!", "luigiverdi@gmail.com"), String.class);
+        assertThat(login.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(login.getBody()).contains("\"token\"");
+    }
+
+    @Test
+    void repository_withDuplicateEmail_violatesUniqueConstraint() {
+        createUser("mario", "mario@example.com", "Password123!");
+        User duplicate = new User();
+        duplicate.setUsername("other");
+        duplicate.setEmail("mario@example.com");
+        duplicate.setEmailCanonical(UserService.normalizeEmail("mario@example.com"));
+        duplicate.setPassword(passwordEncoder.encode("Password123!"));
+        duplicate.setRegDate(LocalDate.now());
+
+        assertThatThrownBy(() -> userRepository.saveAndFlush(duplicate))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
@@ -263,6 +325,7 @@ class AuthControllerTest {
         User user = new User();
         user.setUsername(username);
         user.setEmail(email);
+        user.setEmailCanonical(UserService.normalizeEmail(email));
         user.setPassword(passwordEncoder.encode(rawPassword));
         user.setRegDate(LocalDate.now());
         return userRepository.save(user);

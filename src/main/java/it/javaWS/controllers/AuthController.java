@@ -88,6 +88,7 @@ public class AuthController {
     public ResponseEntity<String> register(@RequestBody AuthRequest request) {
         User user = new User();
         user.setUsername(request.getUsername());
+        // L'email viene salvata come digitata; l'unicità è garantita da emailCanonical (UserService.normalizeEmail)
         user.setEmail(request.getEmail());
 
         if (userService.existsByUsernameOrEmail(user)) {

@@ -14,6 +14,7 @@ Questo documento descrive l'architettura, le convenzioni e i comandi utili per l
 Funzionalità principali:
 
 - Autenticazione con JWT (registrazione con conferma email, login).
+- Email univoche: l'email viene salvata come la digita l'utente (`users.email`); unicità e lookup usano `users.email_canonical` (vincolo `UNIQUE`, lowercase; per Gmail/Googlemail senza punti nel local part, perché Google li ignora — vedi `UserService.normalizeEmail`). Anche `users.username` ha vincolo `UNIQUE`.
 - Gestione utenti (profilo, modifica, soft delete).
 - Gestione amicizie (richieste, accettazione, rifiuto, annullamento, lista amici).
 - Gestione gruppi di spesa (creazione, aggiunta membri, uscita soft: all'uscita i debiti/crediti dell'uscente si estinguono nel gruppo e vengono trasferiti a livello globale, cioè settlement con `group_id` null).

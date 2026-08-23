@@ -1,6 +1,7 @@
 package it.javaWS.services;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -46,9 +47,27 @@ public class UserService implements UserDetailsService {
 	@Transactional
 	public User createUser(User user) {
 
-		if (!userRepository.findByEmailOrUsernameIgnoreCase(user.getEmail(), user.getUsername()).isEmpty())
+		user.setEmailCanonical(normalizeEmail(user.getEmail()));
+		if (!userRepository.findByEmailOrUsernameIgnoreCase(user.getEmailCanonical(), user.getUsername()).isEmpty())
 			return null; // Username o Email già utilizzati
 		return userRepository.save(user);
+	}
+
+	// Normalizza l'email per i controlli di unicità: sempre lowercase;
+	// per Gmail/Googlemail rimuove anche i punti dal local part,
+	// perché Google li ignora (stessa casella).
+	public static String normalizeEmail(String email) {
+		if (email == null)
+			return null;
+		String normalized = email.trim().toLowerCase();
+		int at = normalized.lastIndexOf('@');
+		if (at <= 0)
+			return normalized;
+		String local = normalized.substring(0, at);
+		String domain = normalized.substring(at + 1);
+		if (domain.equals("gmail.com") || domain.equals("googlemail.com"))
+			local = local.replace(".", "");
+		return local + "@" + domain;
 	}
 
 	@Transactional(readOnly = true)
@@ -97,11 +116,16 @@ public class UserService implements UserDetailsService {
 			throw new InvalidCredentialsException("Password non valida");
 		}
 
-		if (request.getEmail() != null && !request.getEmail().equalsIgnoreCase(user.getEmail())) {
-			if (!userRepository.findByEmailOrUsernameIgnoreCase(request.getEmail(), request.getEmail()).isEmpty()) {
+		if (request.getEmail() != null && !request.getEmail().equals(user.getEmail())) {
+			String newCanonical = normalizeEmail(request.getEmail());
+			// Esclude sé stesso: cambiare solo punti/maiuscole della propria Gmail non è un conflitto
+			Set<User> duplicati = new HashSet<>(userRepository.findByEmailOrUsernameIgnoreCase(newCanonical, newCanonical));
+			duplicati.removeIf(u -> u.getId().equals(user.getId()));
+			if (!duplicati.isEmpty()) {
 				throw new DuplicateUserException("Email già in uso");
 			}
-			user.setEmail(request.getEmail().toLowerCase());
+			user.setEmail(request.getEmail());
+			user.setEmailCanonical(newCanonical);
 		}
 
 		if (request.getUsername() != null && !request.getUsername().equals(user.getUsername())) {
@@ -127,7 +151,7 @@ public class UserService implements UserDetailsService {
 
 	@Transactional(readOnly = true)
 	public User loadUserByEmailOrUsername(String email, String username) {
-		Set<User> users = userRepository.findByEmailOrUsernameIgnoreCase(email, username);
+		Set<User> users = userRepository.findByEmailOrUsernameIgnoreCase(normalizeEmail(email), username);
 		if (users.size() != 1) {
 			throw new BadCredentialsException("Credenziali non valide");
 		}
@@ -140,7 +164,8 @@ public class UserService implements UserDetailsService {
 	// dove un utente mancante non è un 401 ma un 404.
 	@Transactional(readOnly = true)
 	public Optional<User> getByEmailOrUsername(String value) {
-		return userRepository.findByEmailOrUsernameIgnoreCase(value, value).stream().findFirst();
+		String normalized = normalizeEmail(value);
+		return userRepository.findByEmailOrUsernameIgnoreCase(normalized, normalized).stream().findFirst();
 	}
 
 	@Transactional(readOnly = true)
@@ -150,7 +175,7 @@ public class UserService implements UserDetailsService {
 
 	@Transactional(readOnly = true)
 	public User getByEmail(String email) {
-		return userRepository.findByEmailIgnoreCase(email).orElse(null);
+		return userRepository.findByEmailIgnoreCase(normalizeEmail(email)).orElse(null);
 	}
 
 	@Transactional(readOnly = true)
@@ -160,7 +185,7 @@ public class UserService implements UserDetailsService {
 
 	@Transactional(readOnly = true)
 	public Boolean existsByUsernameOrEmail(User user) {
-		return !userRepository.findByEmailOrUsernameIgnoreCase(user.getEmail(), user.getUsername()).isEmpty(); // Username o Email già utilizzati
+		return !userRepository.findByEmailOrUsernameIgnoreCase(normalizeEmail(user.getEmail()), user.getUsername()).isEmpty(); // Username o Email già utilizzati
 	}
 
 	@Transactional
