@@ -330,6 +330,15 @@ class AuthControllerTest {
     }
 
     @Test
+    void googleLogin_idTokenMancante_returnsBadRequest() {
+        ResponseEntity<String> response = restTemplate.postForEntity("/auth/google",
+                new GoogleLoginRequest(null), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("ID token mancante");
+    }
+
+    @Test
     void login_overRateLimit_returnsTooManyRequests() {
         createUser("mario", "mario@example.com", "Password123!");
         AuthRequest request = new AuthRequest("mario", "Password123!");

@@ -97,12 +97,15 @@ public class AuthController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Autenticazione avvenuta con successo"),
-        @ApiResponse(responseCode = "400", description = "Login con Google non configurato"),
+        @ApiResponse(responseCode = "400", description = "ID token mancante o login con Google non configurato"),
         @ApiResponse(responseCode = "401", description = "Token Google non valido"),
         @ApiResponse(responseCode = "429", description = "Troppe richieste, riprovare più tardi")
     })
     @PostMapping("/google")
     public ResponseEntity<AuthResponse> loginGoogle(@RequestBody GoogleLoginRequest request) {
+        if (request.getIdToken() == null || request.getIdToken().isBlank()) {
+            throw new IllegalArgumentException("ID token mancante");
+        }
         User user = googleAuthService.loginConGoogle(request.getIdToken());
         String token = jwtUtil.generateToken(user);
         return ResponseEntity.ok(new AuthResponse(token, new UserDTO(user)));
