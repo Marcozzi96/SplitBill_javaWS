@@ -17,6 +17,8 @@ jwt:
 
 app:
   open-link: ${OPEN_LINK:http://localhost:8080}
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:}
   rate-limit:
     limit: ${RATE_LIMIT_LIMIT:10}
     window-seconds: ${RATE_LIMIT_WINDOW_SECONDS:60}

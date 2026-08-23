@@ -22,11 +22,13 @@ import it.javaWS.enums.AuthTokenType;
 import it.javaWS.models.dto.AuthRequest;
 import it.javaWS.models.dto.AuthResponse;
 import it.javaWS.models.dto.ForgotPasswordRequest;
+import it.javaWS.models.dto.GoogleLoginRequest;
 import it.javaWS.models.dto.ResetPasswordRequest;
 import it.javaWS.models.dto.UserDTO;
 import it.javaWS.models.entities.AuthToken;
 import it.javaWS.models.entities.User;
 import it.javaWS.services.AuthTokenService;
+import it.javaWS.services.GoogleAuthService;
 import it.javaWS.services.UserService;
 import it.javaWS.utils.EmailUtil;
 import it.javaWS.utils.JwtUtil;
@@ -41,15 +43,18 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final EmailUtil emailUtil;
     private final AuthTokenService authTokenService;
+    private final GoogleAuthService googleAuthService;
 
     public AuthController(AuthenticationManager authenticationManager, PasswordEncoder passwordEncoder,
-            UserService userService, JwtUtil jwtUtil, EmailUtil emailUtil, AuthTokenService authTokenService) {
+            UserService userService, JwtUtil jwtUtil, EmailUtil emailUtil, AuthTokenService authTokenService,
+            GoogleAuthService googleAuthService) {
         this.authenticationManager = authenticationManager;
         this.passwordEncoder = passwordEncoder;
         this.userService = userService;
         this.jwtUtil = jwtUtil;
         this.emailUtil = emailUtil;
         this.authTokenService = authTokenService;
+        this.googleAuthService = googleAuthService;
     }
 
     @Operation(
@@ -63,16 +68,44 @@ public class AuthController {
     })
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
+        User user;
         try {
-            User user = userService.loadUserByEmailOrUsername(request.getEmail(), request.getUsername());
-            authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(user.getUsername(), request.getPassword())
-            );
-            String token = jwtUtil.generateToken(user);
-            return ResponseEntity.ok(new AuthResponse(token, new UserDTO(user)));
+            user = userService.loadUserByEmailOrUsername(request.getEmail(), request.getUsername());
         } catch (AuthenticationException e) {
             throw new BadCredentialsException("Credenziali non valide");
         }
+        // Gli account senza password (registrati via Google) possono accedere solo da /auth/google
+        if (user.getPassword() == null) {
+            throw new BadCredentialsException("Questo account usa l'accesso con Google");
+        }
+        try {
+            authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(user.getUsername(), request.getPassword())
+            );
+        } catch (AuthenticationException e) {
+            throw new BadCredentialsException("Credenziali non valide");
+        }
+        String token = jwtUtil.generateToken(user);
+        return ResponseEntity.ok(new AuthResponse(token, new UserDTO(user)));
+    }
+
+    @Operation(
+        summary = "Login con Google",
+        description = "Verifica l'ID token Google e restituisce un JWT. Se l'email non è registrata " +
+                "viene creato un nuovo utente senza password; se è già registrata (anche con password) " +
+                "viene fatto l'account linking sull'email verificata da Google"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Autenticazione avvenuta con successo"),
+        @ApiResponse(responseCode = "400", description = "Login con Google non configurato"),
+        @ApiResponse(responseCode = "401", description = "Token Google non valido"),
+        @ApiResponse(responseCode = "429", description = "Troppe richieste, riprovare più tardi")
+    })
+    @PostMapping("/google")
+    public ResponseEntity<AuthResponse> loginGoogle(@RequestBody GoogleLoginRequest request) {
+        User user = googleAuthService.loginConGoogle(request.getIdToken());
+        String token = jwtUtil.generateToken(user);
+        return ResponseEntity.ok(new AuthResponse(token, new UserDTO(user)));
     }
 
     @Operation(

@@ -34,7 +34,8 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
             "/auth/login",
             "/auth/register",
             "/auth/forgotPassword",
-            "/auth/resetPassword"
+            "/auth/resetPassword",
+            "/auth/google"
     );
 
     private final int limit;

@@ -21,6 +21,7 @@ import org.springframework.test.annotation.DirtiesContext;
 import it.javaWS.enums.AuthTokenType;
 import it.javaWS.models.dto.AuthRequest;
 import it.javaWS.models.dto.ForgotPasswordRequest;
+import it.javaWS.models.dto.GoogleLoginRequest;
 import it.javaWS.models.dto.ResetPasswordRequest;
 import it.javaWS.models.entities.AuthToken;
 import it.javaWS.models.entities.User;
@@ -309,6 +310,26 @@ class AuthControllerTest {
     }
 
     @Test
+    void login_googleAccountWithoutPassword_returnsUnauthorizedWithGoogleMessage() {
+        createGoogleUser("mario", "mario@gmail.com");
+        AuthRequest request = new AuthRequest("mario", "Password123!");
+
+        ResponseEntity<String> response = restTemplate.postForEntity("/auth/login", request, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBody()).contains("Questo account usa l'accesso con Google");
+    }
+
+    @Test
+    void googleLogin_whenNotConfigured_returnsBadRequest() {
+        ResponseEntity<String> response = restTemplate.postForEntity("/auth/google",
+                new GoogleLoginRequest("token-finto"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("Login con Google non configurato");
+    }
+
+    @Test
     void login_overRateLimit_returnsTooManyRequests() {
         createUser("mario", "mario@example.com", "Password123!");
         AuthRequest request = new AuthRequest("mario", "Password123!");
@@ -327,6 +348,17 @@ class AuthControllerTest {
         user.setEmail(email);
         user.setEmailCanonical(UserService.normalizeEmail(email));
         user.setPassword(passwordEncoder.encode(rawPassword));
+        user.setRegDate(LocalDate.now());
+        return userRepository.save(user);
+    }
+
+    // Utente registrato via Google: nessuna password
+    private User createGoogleUser(String username, String email) {
+        User user = new User();
+        user.setUsername(username);
+        user.setEmail(email);
+        user.setEmailCanonical(UserService.normalizeEmail(email));
+        user.setPassword(null);
         user.setRegDate(LocalDate.now());
         return userRepository.save(user);
     }

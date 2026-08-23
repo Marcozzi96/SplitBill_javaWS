@@ -141,6 +141,31 @@ class UserServiceTest {
     }
 
     @Test
+    void updateUser_googleUserWithoutPassword_canSetFirstPassword() {
+        User user = buildUser(1L, "mario", "mario@gmail.com", null);
+        UpdateUserRequest request = new UpdateUserRequest();
+        request.setPassword("nuovaPwd");
+
+        when(passwordEncoder.encode("nuovaPwd")).thenReturn("nuovaEncoded");
+        when(userRepository.save(user)).thenReturn(user);
+
+        User result = userService.updateUser(user, request);
+
+        assertThat(result.getPassword()).isEqualTo("nuovaEncoded");
+        verify(passwordEncoder, never()).matches(any(), any());
+    }
+
+    @Test
+    void updateUser_userWithPassword_missingOldPassword_throwsInvalidCredentials() {
+        User user = buildUser(1L, "mario", "mario@example.com", "encodedPwd");
+        UpdateUserRequest request = new UpdateUserRequest();
+        request.setPassword("nuovaPwd");
+
+        assertThatThrownBy(() -> userService.updateUser(user, request))
+                .isInstanceOf(InvalidCredentialsException.class);
+    }
+
+    @Test
     void updateUser_noChanges_returnsSavedUser() {
         User user = buildUser(1L, "mario", "mario@example.com", "encodedPwd");
         UpdateUserRequest request = new UpdateUserRequest();

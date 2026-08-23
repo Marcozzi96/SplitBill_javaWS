@@ -38,6 +38,7 @@ services:
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       # Limite heap JVM: adeguare alla RAM del VPS (768m ok per 2-4 GB totali)
       JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xmx768m}
 
@@ -46,6 +47,7 @@ services:
       context: ../SplitBill
       args:
         VITE_API_BASE_URL: https://${API_DOMAIN}
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
     restart: unless-stopped
 
   caddy:

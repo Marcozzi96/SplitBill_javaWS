@@ -112,7 +112,10 @@ public class UserService implements UserDetailsService {
 
 	@Transactional
 	public User updateUser(User user, UpdateUserRequest request) {
-		if (request.getOldPassword() == null || !passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+		// Gli utenti registrati via Google non hanno password: il JWT basta come
+		// autenticazione e possono impostare la prima password senza oldPassword
+		if (user.getPassword() != null
+				&& (request.getOldPassword() == null || !passwordEncoder.matches(request.getOldPassword(), user.getPassword()))) {
 			throw new InvalidCredentialsException("Password non valida");
 		}
 

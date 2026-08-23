@@ -14,6 +14,7 @@ Questo documento descrive l'architettura, le convenzioni e i comandi utili per l
 Funzionalità principali:
 
 - Autenticazione con JWT (registrazione con conferma email, login).
+- Login con Google (`POST /auth/google`): verifica dell'ID token con `GoogleIdTokenVerifier` (audience = `GOOGLE_CLIENT_ID`). Se l'email è già registrata (anche con password) viene fatto l'account linking sull'email verificata da Google; altrimenti viene creato un utente **senza password** (`users.password` null), che può accedere solo via Google finché non imposta una password dal profilo (in `updateUser` il controllo `oldPassword` è saltato per questi utenti). `UserDTO.hasPassword` indica se l'utente ha una password.
 - Email univoche: l'email viene salvata come la digita l'utente (`users.email`); unicità e lookup usano `users.email_canonical` (vincolo `UNIQUE`, lowercase; per Gmail/Googlemail senza punti nel local part, perché Google li ignora — vedi `UserService.normalizeEmail`). Anche `users.username` ha vincolo `UNIQUE`.
 - Gestione utenti (profilo, modifica, soft delete).
 - Gestione amicizie (richieste, accettazione, rifiuto, annullamento, lista amici).
@@ -79,6 +80,7 @@ src/main/java/it/javaWS/
 │   ├── GroupService.java
 │   ├── BillService.java
 │   ├── BalanceService.java
+│   ├── GoogleAuthService.java       # Verifica ID token Google, creazione utente senza password
 │   └── AuthTokenService.java        # Token opachi registrazione/reset password
 ├── repositories/                    # Spring Data JPA
 │   ├── UserRepository.java
@@ -110,6 +112,7 @@ src/main/java/it/javaWS/
 │   │   ├── FriendshipReqSenDTO.java
 │   │   ├── AuthRequest.java
 │   │   ├── AuthResponse.java
+│   │   ├── GoogleLoginRequest.java
 │   │   ├── ForgotPasswordRequest.java
 │   │   ├── ResetPasswordRequest.java
 │   │   └── UpdateUserRequest.java
@@ -216,6 +219,7 @@ Il profilo attivo è determinato da `SPRING_PROFILES_ACTIVE` (default `dev`).
 | `JWT_SECRET` | Chiave segreta Base64 (≥512 bit) per la firma JWT. Se assente, `JwtUtil` genera una chiave effimera ad ogni avvio (solo dev) | generata automaticamente |
 | `JWT_VALIDITY` | Durata token in secondi | `86400` (24h) |
 | `OPEN_LINK` | URL base frontend per link di conferma/reset | `http://localhost:8080` |
+| `GOOGLE_CLIENT_ID` | OAuth Client ID Google (login con Google); se vuoto il login con Google è disabilitato | vuoto (disabilitato) |
 | `RATE_LIMIT_LIMIT` | Max richieste per finestra su `/auth/**` | `10` |
 | `RATE_LIMIT_WINDOW_SECONDS` | Durata finestra rate limiting in secondi | `60` |
 
@@ -235,6 +239,7 @@ Il profilo attivo è determinato da `SPRING_PROFILES_ACTIVE` (default `dev`).
 | `MAIL_PASSWORD` | Password o app-specific password |
 | `CORS_ALLOWED_ORIGINS` | Origini CORS aggiuntive separate da virgola (es. `https://app.example.com`); lette da `GlobalCorsConfig` via `app.cors.allowed-origins` |
 | `OPEN_LINK` | URL base frontend |
+| `GOOGLE_CLIENT_ID` | OAuth Client ID "Web application" da Google Cloud Console (stesso valore passato al frontend come build arg `VITE_GOOGLE_CLIENT_ID`) |
 | `PORT` | Porta del server (default `8080`) |
 
 ---
@@ -278,7 +283,7 @@ Il profilo attivo è determinato da `SPRING_PROFILES_ACTIVE` (default `dev`).
 - Endpoint pubblici: `/auth/**`, `/status/**`, `/swagger-ui/**`, `/v3/api-docs/**`, `/swagger-ui.html`, `/h2-console/**`.
 - Tutti gli altri endpoint richiedono l'header `Authorization: Bearer <token>`.
 - CORS configurato con origini esplicite (`http://localhost:3000`, `https://fe-splitbill.vercel.app`) più `allowedOriginPatterns` per il dev in LAN (`localhost:*` e range privati `192.168.*`, `10.*`, `172.*` con qualsiasi porta).
-- Presente un filtro `AuthRateLimitFilter` che applica rate limiting in-memory (finestra fissa per IP+endpoint) su `POST /auth/login|register|forgotPassword|resetPassword`; oltre soglia risponde `429`.
+- Presente un filtro `AuthRateLimitFilter` che applica rate limiting in-memory (finestra fissa per IP+endpoint) su `POST /auth/login|register|forgotPassword|resetPassword|google`; oltre soglia risponde `429`.
 - La chiave JWT viene decodificata da Base64 in `JwtUtil` (`Decoders.BASE64`); se `jwt.secret` è vuota (solo dev), viene generata una chiave HS512 effimera con warning.
 - Presente un filtro `SuspiciousRequestFilter` che blocca pattern di richieste sospette (es. `${jndi:...`).
 
