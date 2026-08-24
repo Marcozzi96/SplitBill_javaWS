@@ -630,6 +630,82 @@ class BillControllerTest {
                 .andExpect(jsonPath("$.buyer.userId").value(payer.getId()));
     }
 
+    @Test
+    void createBill_groupBill_withDeletedDebtor_returnsBadRequest() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User ghost = createUser("ghost", "ghost@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, ghost, GroupRole.MEMBER);
+        markDeleted(ghost);
+
+        Map<Long, BigDecimal> debits = Map.of(
+                ghost.getId(), new BigDecimal("50"),
+                buyer.getId(), new BigDecimal("50"));
+
+        mockMvc.perform(post("/bills/new")
+                        .with(user(buyer))
+                        .param("description", "Dinner")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .param("groupId", group.getId().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateBill_keepsExistingDeletedUser_returnsOk() throws Exception {
+        // Un eliminato già coinvolto nella spesa resta ammesso in modifica.
+        User buyer = createUser("buyer", "buyer@example.com");
+        User ghost = createUser("ghost", "ghost@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, ghost, GroupRole.MEMBER);
+        Bill bill = createBill(group, buyer, ghost, new BigDecimal("100"));
+        markDeleted(ghost);
+
+        Map<Long, BigDecimal> debits = Map.of(
+                ghost.getId(), new BigDecimal("40"),
+                buyer.getId(), new BigDecimal("60"));
+
+        mockMvc.perform(put("/bills/{id}", bill.getId())
+                        .with(user(buyer))
+                        .param("description", "Updated with ghost")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.description").value("Updated with ghost"));
+    }
+
+    @Test
+    void updateBill_addsDeletedUser_returnsBadRequest() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User other = createUser("other", "other@example.com");
+        User ghost = createUser("ghost", "ghost@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, other, GroupRole.MEMBER);
+        addMember(group, ghost, GroupRole.MEMBER);
+        Bill bill = createBill(group, buyer, other, new BigDecimal("100"));
+        markDeleted(ghost);
+
+        Map<Long, BigDecimal> debits = Map.of(
+                ghost.getId(), new BigDecimal("50"),
+                buyer.getId(), new BigDecimal("50"));
+
+        mockMvc.perform(put("/bills/{id}", bill.getId())
+                        .with(user(buyer))
+                        .param("description", "Hacked")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isBadRequest());
+    }
+
     private User createUser(String username, String email) {
         User user = new User();
         user.setUsername(username);
@@ -671,6 +747,13 @@ class BillControllerTest {
         friendship.setStato(StatoAmicizia.ACCETTATA);
         friendship.setDataRichiesta(LocalDateTime.now());
         friendshipRepository.save(friendship);
+    }
+
+    // Simula un account eliminato (soft delete): i dati identificativi restano,
+    // conta solo il flag deleted per i controlli sulle spese.
+    private User markDeleted(User user) {
+        user.setDeleted(true);
+        return userRepository.save(user);
     }
 
     private Bill createBill(Group group, User buyer, User debtor, BigDecimal amount) {

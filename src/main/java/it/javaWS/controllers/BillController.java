@@ -110,6 +110,11 @@ public class BillController {
 			}
 		}
 
+		// Gli utenti eliminati (soft delete) non possono partecipare a nuove spese.
+		if (buyer.isDeleted() || clients.stream().anyMatch(User::isDeleted)) {
+			throw new IllegalArgumentException("Un utente eliminato non può partecipare a nuove spese");
+		}
+
 		Map<User, BigDecimal> usersDebitConvertito = new HashMap<>();
 		for (User debtor : clients) {
 			usersDebitConvertito.put(debtor, usersDebit.get(debtor.getId()));

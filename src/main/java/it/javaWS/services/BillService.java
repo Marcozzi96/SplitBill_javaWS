@@ -257,6 +257,22 @@ public class BillService {
             }
         }
 
+        // Gli utenti eliminati (soft delete) già coinvolti nella spesa restano ammessi
+        // (altrimenti la spesa non sarebbe più modificabile); si bloccano solo gli
+        // eliminati "nuovi": mai presenti prima, oppure scelti come nuovo buyer.
+        Set<Long> partecipantiEsistenti = transactionRepository.findByBill_Id(billId).stream()
+                .map(t -> t.getUser().getId())
+                .collect(Collectors.toSet());
+        partecipantiEsistenti.add(bill.getBuyer().getId());
+        if (buyer.isDeleted() && !partecipantiEsistenti.contains(effectiveBuyerId)) {
+            throw new InvalidBillException("Un utente eliminato non può partecipare a nuove spese");
+        }
+        for (User debtor : debtors) {
+            if (debtor.isDeleted() && !partecipantiEsistenti.contains(debtor.getId())) {
+                throw new InvalidBillException("Un utente eliminato non può partecipare a nuove spese");
+            }
+        }
+
         balanceService.revertBill(bill);
         transactionRepository.deleteAll(transactionRepository.findByBill_Id(bill.getId()));
 

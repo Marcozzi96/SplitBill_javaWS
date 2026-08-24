@@ -263,6 +263,20 @@ class UserServiceTest {
     }
 
     @Test
+    void anonymizeUser_anonymizesFieldsAndMarksDeleted() {
+        User user = buildUser(7L, "mario", "Mario.Rossi@gmail.com", "encodedPwd");
+
+        userService.anonymizeUser(user);
+
+        assertThat(user.isDeleted()).isTrue();
+        assertThat(user.getPassword()).isNull();
+        assertThat(user.getUsername()).isEqualTo("utente_eliminato_7");
+        assertThat(user.getEmail()).isEqualTo("utente.7@eliminato.invalid");
+        assertThat(user.getEmailCanonical()).isEqualTo(UserService.normalizeEmail("utente.7@eliminato.invalid"));
+        verify(userRepository).save(user);
+    }
+
+    @Test
     void inviaRichiestaAmicizia_self_throwsIllegalArgument() {
         assertThatThrownBy(() -> userService.inviaRichiestaAmicizia(1L, 1L, "ciao"))
                 .isInstanceOf(IllegalArgumentException.class);

@@ -80,6 +80,46 @@ public class PaymentService {
         return new PaymentDTO(saved);
     }
 
+    // "Dimentica" il debito di un utente eliminato verso il creditore: registra un
+    // rimborso fittizio pari al debito residuo, azzerandolo. Il payer non deve più
+    // essere membro attivo del gruppo (potrebbe esserne uscito prima dell'eliminazione).
+    @Transactional
+    public PaymentDTO forgiveDebt(Long creditorId, Long payerId, Long groupId) {
+        User payer = userRepository.findById(payerId)
+                .orElseThrow(() -> new UserNotFoundException("Pagatore non trovato"));
+        if (!payer.isDeleted()) {
+            throw new InvalidPaymentException("Puoi dimenticare solo i debiti di utenti eliminati");
+        }
+        User creditor = userRepository.findById(creditorId)
+                .orElseThrow(() -> new UserNotFoundException("Creditore non trovato"));
+
+        Group group = null;
+        if (groupId != null) {
+            group = groupService.getGroup(groupId);
+            if (group == null || !groupService.existsByGroupIdAndUserId(groupId, creditorId)) {
+                throw new InvalidPaymentException("Gruppo non valido o utente non membro");
+            }
+        }
+
+        BigDecimal debt = balanceService.getDebtBetween(payerId, creditorId, groupId);
+        if (debt.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidPaymentException("Nessun debito da dimenticare");
+        }
+
+        Payment payment = new Payment();
+        payment.setPayer(payer);
+        payment.setPayee(creditor);
+        payment.setGroup(group);
+        payment.setAmount(debt);
+        payment.setDate(LocalDate.now());
+        payment.setNotes("Debito dimenticato (utente eliminato)");
+
+        Payment saved = paymentRepository.save(payment);
+        balanceService.applyPayment(saved);
+
+        return new PaymentDTO(saved);
+    }
+
     @Transactional(readOnly = true)
     public Page<PaymentDTO> getPaymentsForUser(Long userId, Pageable pageable) {
         return paymentRepository.findByPayerIdOrPayeeId(userId, userId, pageable)

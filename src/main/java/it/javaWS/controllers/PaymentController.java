@@ -47,6 +47,19 @@ public class PaymentController {
         return ResponseEntity.ok(paymentService.createPayment(user.getId(), payeeId, amount, groupId, notes, user.getId()));
     }
 
+    @Operation(summary = "Dimentica il debito di un utente eliminato", description = "Registra un rimborso fittizio pari al debito residuo che un utente eliminato ha verso l'utente autenticato, azzerandolo. Con groupId il creditore deve essere un membro attivo del gruppo.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Debito dimenticato"),
+            @ApiResponse(responseCode = "400", description = "Utente non eliminato, nessun debito da dimenticare o gruppo non valido"),
+            @ApiResponse(responseCode = "401", description = "Non autenticato"),
+            @ApiResponse(responseCode = "404", description = "Pagatore non trovato") })
+    @PostMapping("/forgive")
+    public ResponseEntity<PaymentDTO> forgiveDebt(@AuthenticationPrincipal User user,
+            @RequestParam Long payerId,
+            @RequestParam(required = false) Long groupId) {
+        return ResponseEntity.ok(paymentService.forgiveDebt(user.getId(), payerId, groupId));
+    }
+
     @Operation(summary = "Recupera i propri rimborsi", description = "Restituisce la cronologia dei rimborsi in cui l'utente è coinvolto, con paginazione")
     @ApiResponse(responseCode = "200", description = "Cronologia rimborsi restituita")
     @GetMapping

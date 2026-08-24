@@ -1,6 +1,5 @@
 package it.javaWS.controllers;
 
-import java.time.LocalDate;
 import java.util.Map;
 
 import org.springframework.data.domain.Page;
@@ -76,13 +75,7 @@ public class UserController {
 	})
 	@DeleteMapping("/delete")
 	public ResponseEntity<String> deleteUser(@AuthenticationPrincipal User user) {
-		user.setEmail("utente." + user.getId() + LocalDate.now() + "@eliminato");
-		user.setEmailCanonical(UserService.normalizeEmail(user.getEmail()));
-		user.setUsername("UtenteEliminato" + user.getId() + LocalDate.now());
-		user.setPassword("UtenteEliminato" + user.getId() + LocalDate.now());
-		user.setDeleted(true);
-
-		userService.updateUser(user);
+		userService.anonymizeUser(user);
 		return ResponseEntity.ok("Success");
 	}
 

@@ -1,5 +1,6 @@
 package it.javaWS.controllers;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -166,6 +167,67 @@ class PaymentControllerTest {
                         .with(user(debtor)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalOwed").value(60));
+    }
+
+    @Test
+    void forgiveDebt_deletedPayer_debtForgivenAndZeroed() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User ghost = createUser("ghost", "ghost@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, ghost, GroupRole.MEMBER);
+        addFriendship(buyer, ghost);
+        createBillWithBalance(group, buyer, ghost, new BigDecimal("100"));
+        ghost.setDeleted(true);
+        userRepository.save(ghost);
+
+        mockMvc.perform(post("/payments/forgive")
+                        .with(user(buyer))
+                        .param("payerId", ghost.getId().toString())
+                        .param("groupId", group.getId().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.amount").value(100))
+                .andExpect(jsonPath("$.notes").value("Debito dimenticato (utente eliminato)"))
+                .andExpect(jsonPath("$.payer.userId").value(ghost.getId()))
+                .andExpect(jsonPath("$.payee.userId").value(buyer.getId()));
+
+        // Il debito risulta azzerato dopo il rimborso fittizio.
+        assertThat(balanceService.getDebtBetween(ghost.getId(), buyer.getId(), group.getId()))
+                .isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void forgiveDebt_payerNotDeleted_returnsBadRequest() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User debtor = createUser("debtor", "debtor@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, debtor, GroupRole.MEMBER);
+        addFriendship(buyer, debtor);
+        createBillWithBalance(group, buyer, debtor, new BigDecimal("100"));
+
+        mockMvc.perform(post("/payments/forgive")
+                        .with(user(buyer))
+                        .param("payerId", debtor.getId().toString())
+                        .param("groupId", group.getId().toString()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void forgiveDebt_noDebt_returnsBadRequest() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User ghost = createUser("ghost", "ghost@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, ghost, GroupRole.MEMBER);
+        ghost.setDeleted(true);
+        userRepository.save(ghost);
+
+        mockMvc.perform(post("/payments/forgive")
+                        .with(user(buyer))
+                        .param("payerId", ghost.getId().toString())
+                        .param("groupId", group.getId().toString()))
+                .andExpect(status().isBadRequest());
     }
 
     private User createUser(String username, String email) {

@@ -14,11 +14,19 @@ public class GroupMemberDTO {
     private String email;
     private GroupRole role;
     private LocalDate dataIngresso;
+    // true per gli account eliminati (soft delete): i dati personali sono mascherati
+    private boolean deleted;
 
     public GroupMemberDTO(UserGroup userGroup) {
         this.userId = userGroup.getUser().getId();
-        this.username = userGroup.getUser().getUsername();
-        this.email = userGroup.getUser().getEmail();
+        this.deleted = userGroup.getUser().isDeleted();
+        if (this.deleted) {
+            this.username = "UtenteEliminato";
+            this.email = null;
+        } else {
+            this.username = userGroup.getUser().getUsername();
+            this.email = userGroup.getUser().getEmail();
+        }
         this.role = userGroup.getRole();
         this.dataIngresso = userGroup.getDataIngresso();
     }

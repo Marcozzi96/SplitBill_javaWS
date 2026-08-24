@@ -16,7 +16,7 @@ Funzionalità principali:
 - Autenticazione con JWT (registrazione con conferma email, login).
 - Login con Google (`POST /auth/google`): verifica dell'ID token con `GoogleIdTokenVerifier` (audience = `GOOGLE_CLIENT_ID`). Se l'email è già registrata (anche con password) viene fatto l'account linking sull'email verificata da Google; altrimenti viene creato un utente **senza password** (`users.password` null), che può accedere solo via Google finché non imposta una password dal profilo (in `updateUser` il controllo `oldPassword` è saltato per questi utenti). `UserDTO.hasPassword` indica se l'utente ha una password.
 - Email univoche: l'email viene salvata come la digita l'utente (`users.email`); unicità e lookup usano `users.email_canonical` (vincolo `UNIQUE`, lowercase; per Gmail/Googlemail senza punti nel local part, perché Google li ignora — vedi `UserService.normalizeEmail`). Anche `users.username` ha vincolo `UNIQUE`.
-- Gestione utenti (profilo, modifica, soft delete).
+- Gestione utenti (profilo, modifica, soft delete con anonimizzazione: `DELETE /user/delete` delega a `UserService.anonymizeUser`, che sostituisce email/username con placeholder univoci (`utente.<id>@eliminato.invalid`, `utente_eliminato_<id>`), azzera la password e imposta `deleted=true`; nei DTO (`UserDTO`, `GroupMemberDTO`) gli eliminati compaiono come `"UtenteEliminato"` con email null e flag `deleted=true`).
 - Gestione amicizie (richieste, accettazione, rifiuto, annullamento, lista amici).
 - Gestione gruppi di spesa (creazione, aggiunta membri, uscita soft: all'uscita i debiti/crediti dell'uscente si estinguono nel gruppo e vengono trasferiti a livello globale, cioè settlement con `group_id` null).
 - I controlli di membership (`UserGroupRepository.existsByGroupIdAndUserId*`) considerano solo i membri attivi (`dataUscita` null): chi è uscito non può più operare sul gruppo.
@@ -24,6 +24,9 @@ Funzionalità principali:
   - `POST /bills/new`: `groupId` opzionale — senza gruppo la spesa è **personale** (tra amici); i debitori devono esistere ed essere amici del buyer. Update/delete: qualsiasi membro attivo del gruppo; per le spese personali chiunque sia coinvolto (buyer o debitore).
   - `buyerId` opzionale in create/update ("Pagato da"): default l'utente autenticato in creazione, il buyer attuale in modifica. Nel gruppo il buyer deve essere un membro attivo.
   - Bilanci e settlement pairwise supportano `group_id` null (spese personali e uscite da gruppo).
+  - Gli utenti eliminati (`deleted=true`) non possono partecipare a **nuove** spese, né come buyer né come debitori (`POST /bills/new`); in modifica (`PUT /bills/{id}`) restano ammessi solo se già coinvolti nella spesa esistente — un eliminato mai presente prima, o scelto come nuovo buyer, viene rifiutato con 400.
+- Rimborsi tra utenti: `POST /payments` (l'importo non può superare il debito effettivo) e `GET /payments` (cronologia paginata).
+- "Dimentica il debito": `POST /payments/forgive?payerId=<id>[&groupId=<id>]` registra un rimborso fittizio pari al debito residuo di un **utente eliminato** verso il creditore autenticato, azzerandolo (note: "Debito dimenticato (utente eliminato)"). Con `groupId` il creditore deve essere un membro attivo del gruppo; non è richiesta la membership del payer eliminato.
 - Calcolo del saldo netto di un utente.
 - Documentazione API tramite Swagger UI.
 
@@ -71,6 +74,7 @@ src/main/java/it/javaWS/
 │   ├── GroupController.java
 │   ├── BillController.java
 │   ├── BalanceController.java
+│   ├── PaymentController.java      # Rimborsi e "dimentica il debito"
 │   ├── StatusController.java
 │   └── advice/
 │       └── GlobalExceptionHandler.java
@@ -80,6 +84,7 @@ src/main/java/it/javaWS/
 │   ├── GroupService.java
 │   ├── BillService.java
 │   ├── BalanceService.java
+│   ├── PaymentService.java         # Rimborsi, forgiveDebt (dimentica il debito)
 │   ├── GoogleAuthService.java       # Verifica ID token Google, creazione utente senza password
 │   └── AuthTokenService.java        # Token opachi registrazione/reset password
 ├── repositories/                    # Spring Data JPA
@@ -88,6 +93,7 @@ src/main/java/it/javaWS/
 │   ├── GroupRepository.java
 │   ├── UserGroupRepository.java
 │   ├── BillRepository.java
+│   ├── PaymentRepository.java
 │   ├── AuthTokenRepository.java
 │   └── TransactionRepository.java
 ├── models/
@@ -98,6 +104,7 @@ src/main/java/it/javaWS/
 │   │   ├── UserGroupId.java
 │   │   ├── Friendship.java
 │   │   ├── Bill.java
+│   │   ├── Payment.java
 │   │   ├── AuthToken.java
 │   │   └── Transaction.java
 │   ├── dto/                         # Data Transfer Objects
@@ -105,6 +112,7 @@ src/main/java/it/javaWS/
 │   │   ├── GroupDTO.java
 │   │   ├── GroupMemberDTO.java
 │   │   ├── BillDTO.java
+│   │   ├── PaymentDTO.java
 │   │   ├── TransactionDTO.java
 │   │   ├── UserBalanceDTO.java
 │   │   ├── SettlementDTO.java
@@ -136,6 +144,7 @@ src/test/java/it/javaWS/
 ├── JavawsApplicationTests.java
 ├── services/                        # Test di unità con Mockito
 │   ├── BillServiceTest.java
+│   ├── PaymentServiceTest.java
 │   ├── GroupServiceTest.java
 │   ├── GroupServiceLazyInitTest.java # Regressione: proxy lazy usati fuori dalla sessione (non @Transactional)
 │   ├── AuthTokenServiceTest.java
@@ -144,6 +153,7 @@ src/test/java/it/javaWS/
 │   ├── AuthControllerTest.java
 │   ├── UserControllerTest.java
 │   ├── BillControllerTest.java
+│   ├── PaymentControllerTest.java
 │   ├── GroupControllerTest.java
 │   └── BalanceControllerTest.java
 ├── controllers/advice/

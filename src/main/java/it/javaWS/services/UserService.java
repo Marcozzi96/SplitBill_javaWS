@@ -105,6 +105,20 @@ public class UserService implements UserDetailsService {
 		return true;
 	}
 
+	// Soft delete con anonimizzazione: i dati personali sono sostituiti da
+	// placeholder non reversibili e la password rimossa (niente placeholder in chiaro).
+	// Email e username restano univoci grazie all'id, così i vincoli UNIQUE reggono.
+	@Transactional
+	public void anonymizeUser(User user) {
+		String emailAnonima = "utente." + user.getId() + "@eliminato.invalid";
+		user.setEmail(emailAnonima);
+		user.setEmailCanonical(normalizeEmail(emailAnonima));
+		user.setUsername("utente_eliminato_" + user.getId());
+		user.setPassword(null);
+		user.setDeleted(true);
+		userRepository.save(user);
+	}
+
 	@Transactional
 	public User updateUser(User user) {
 		return userRepository.save(user);
