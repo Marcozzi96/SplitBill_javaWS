@@ -6,6 +6,19 @@
 	reverse_proxy frontend:80
 }
 
+www.{$APP_DOMAIN} {
+	redir https://{$APP_DOMAIN}{uri} permanent
+}
+
 {$API_DOMAIN} {
+	reverse_proxy backend:8080
+}
+
+# Dominio legacy: l'app resta raggiungibile ma viene portata sul dominio canonico.
+{$LEGACY_APP_DOMAIN} {
+	redir https://{$APP_DOMAIN}{uri} permanent
+}
+
+{$LEGACY_API_DOMAIN} {
 	reverse_proxy backend:8080
 }

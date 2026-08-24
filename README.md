@@ -65,7 +65,7 @@ Il profilo attivo si imposta con la variabile `SPRING_PROFILES_ACTIVE`.
 | `MAIL_PORT`                   | Porta SMTP                                                             | `587`                                                |
 | `MAIL_USERNAME`               | Indirizzo email usato per inviare le mail di conferma                  | `tua-app@gmail.com`                                  |
 | `MAIL_PASSWORD`               | Password o app-specific password dell'account email                    |                                                      |
-| `OPEN_LINK`                   | URL base del frontend, usato nel link di conferma registrazione        | `https://fe-splitbill.vercel.app`                    |
+| `OPEN_LINK`                   | URL base del frontend, usato nel link di conferma registrazione        | `https://splitbill.it`                    |
 
 La porta del server è configurabile tramite `PORT` (default `8080`).
 
@@ -105,7 +105,7 @@ La porta del server è configurabile tramite `PORT` (default `8080`).
    export JWT_SECRET=$(openssl rand -base64 64)
    export MAIL_USERNAME=tua-email@gmail.com
    export MAIL_PASSWORD=tua-password
-   export OPEN_LINK=https://fe-splitbill.vercel.app
+   export OPEN_LINK=https://splitbill.it
    ./mvnw spring-boot:run
    ```
 

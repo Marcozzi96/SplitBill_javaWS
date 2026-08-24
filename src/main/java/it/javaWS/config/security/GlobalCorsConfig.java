@@ -30,7 +30,7 @@ public class GlobalCorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         List<String> allowedOrigins = new ArrayList<>(
-                List.of("http://localhost:3000", "https://fe-splitbill.vercel.app"));
+                List.of("http://localhost:3000"));
         allowedOrigins.addAll(extraOrigins);
         configuration.setAllowedOrigins(allowedOrigins);
         // Test da altri device sulla stessa rete (es. smartphone): l'origine è l'IP

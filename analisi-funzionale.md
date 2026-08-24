@@ -281,7 +281,7 @@ Friendship
 
 - **JWT secret**: in `application-dev.yml` è presente un valore di default. In produzione è obbligatorio sovrascriverlo con `JWT_SECRET`. Il dev-default è sufficientemente lungo per gli algoritmi HMAC usati da JJWT.
 - **Password nel token email**: la password in chiaro viene inclusa nei claims del JWT di conferma. Sebbene il token sia firmato, se venisse leaked (es. log, email intercettata) l'account è compromesso.
-- **CORS**: consentite solo `http://localhost:3000` e `https://fe-splitbill.vercel.app`. OK per ambienti noti.
+- **CORS**: consentite `http://localhost:3000` e le origini da `CORS_ALLOWED_ORIGINS` (in produzione `https://splitbill.it`). OK per ambienti noti.
 - **CSRF**: disabilitato correttamente in contesto stateless JWT.
 - **Filtro sospetti**: `SuspiciousRequestFilter` blocca pattern JNDI e `MDEDiscovery`, ma usa `System.out.println` (vietato dalle regole di progetto).
 - **Autorizzazione fine-grained**: manca. Endpoint come `DELETE /bills/{id}`, `DELETE /transactions/{id}`, `GET /balance/{userId}` non controllano ownership.

@@ -282,7 +282,7 @@ Il profilo attivo è determinato da `SPRING_PROFILES_ACTIVE` (default `dev`).
 - CSRF disabilitato perché l'autenticazione non usa cookie/sessioni.
 - Endpoint pubblici: `/auth/**`, `/status/**`, `/swagger-ui/**`, `/v3/api-docs/**`, `/swagger-ui.html`, `/h2-console/**`.
 - Tutti gli altri endpoint richiedono l'header `Authorization: Bearer <token>`.
-- CORS configurato con origini esplicite (`http://localhost:3000`, `https://fe-splitbill.vercel.app`) più `allowedOriginPatterns` per il dev in LAN (`localhost:*` e range privati `192.168.*`, `10.*`, `172.*` con qualsiasi porta).
+- CORS configurato con origini esplicite (`http://localhost:3000` più quelle da `CORS_ALLOWED_ORIGINS`, es. `https://splitbill.it`) più `allowedOriginPatterns` per il dev in LAN (`localhost:*` e range privati `192.168.*`, `10.*`, `172.*` con qualsiasi porta).
 - Presente un filtro `AuthRateLimitFilter` che applica rate limiting in-memory (finestra fissa per IP+endpoint) su `POST /auth/login|register|forgotPassword|resetPassword|google`; oltre soglia risponde `429`.
 - La chiave JWT viene decodificata da Base64 in `JwtUtil` (`Decoders.BASE64`); se `jwt.secret` è vuota (solo dev), viene generata una chiave HS512 effimera con warning.
 - Presente un filtro `SuspiciousRequestFilter` che blocca pattern di richieste sospette (es. `${jndi:...`).
