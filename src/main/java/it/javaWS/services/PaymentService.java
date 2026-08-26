@@ -122,7 +122,7 @@ public class PaymentService {
 
     @Transactional(readOnly = true)
     public Page<PaymentDTO> getPaymentsForUser(Long userId, Pageable pageable) {
-        return paymentRepository.findByPayerIdOrPayeeId(userId, userId, pageable)
+        return paymentRepository.findByPayerIdOrPayeeIdOrderByDateDescIdDesc(userId, userId, pageable)
                 .map(PaymentDTO::new);
     }
 }

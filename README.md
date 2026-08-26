@@ -155,8 +155,8 @@ Gli endpoint di autenticazione sono protetti da rate limiting (default: 10 richi
 |--------|----------------------------------|----------------------------------------------|
 | GET    | `/user/me`                       | Dati dell'utente autenticato                 |
 | PUT    | `/user/update`                   | Aggiorna profilo e rilascia nuovo token      |
-| DELETE | `/user/delete`                   | Elimina account (soft delete)                |
-| GET    | `/user/getFriends`               | Lista amici                                  |
+| DELETE | `/user/delete`                   | Elimina account (soft delete con anonimizzazione; lo storico spese è preservato e l'utente appare come "UtenteEliminato") |
+| GET    | `/user/getFriends`               | Lista amici (ordine alfabetico per username) |
 | GET    | `/user/sendFriendshipRequest`    | Invia richiesta di amicizia                  |
 | GET    | `/user/acceptFriendship`         | Accetta una richiesta ricevuta               |
 | GET    | `/user/refuseFriendship`         | Rifiuta/annulla una richiesta                |
@@ -179,10 +179,18 @@ Gli endpoint di autenticazione sono protetti da rate limiting (default: 10 richi
 | Metodo | Endpoint                         | Descrizione                                  |
 |--------|----------------------------------|----------------------------------------------|
 | POST   | `/bills/new`                     | Crea una nuova spesa                         |
-| GET    | `/bills/group/{groupId}`         | Spese di un gruppo                           |
-| GET    | `/bills/getWhereImBuyer`         | Spese in cui l'utente è il pagante           |
-| GET    | `/bills/getMyBills`              | Spese in cui l'utente è coinvolto            |
+| GET    | `/bills/group/{groupId}`         | Spese di un gruppo (dalla più recente)       |
+| GET    | `/bills/getWhereImBuyer`         | Spese in cui l'utente è il pagante (dalla più recente) |
+| GET    | `/bills/getMyBills`              | Spese in cui l'utente è coinvolto (dalla più recente) |
 | DELETE | `/bills/{id}`                    | Elimina una spesa                            |
+
+### Rimborsi
+
+| Metodo | Endpoint              | Descrizione                                  |
+|--------|-----------------------|----------------------------------------------|
+| POST   | `/payments`           | Registra un rimborso                         |
+| POST   | `/payments/forgive`   | "Dimentica" l'intero debito di un utente eliminato verso l'autenticato |
+| GET    | `/payments`           | Cronologia rimborsi (dalla più recente)      |
 
 ### Transazioni
 

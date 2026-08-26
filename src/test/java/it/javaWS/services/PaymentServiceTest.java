@@ -125,7 +125,7 @@ class PaymentServiceTest {
         payment.setPayee(payee);
         payment.setAmount(new BigDecimal("10"));
 
-        when(paymentRepository.findByPayerIdOrPayeeId(1L, 1L, PageRequest.of(0, 20)))
+        when(paymentRepository.findByPayerIdOrPayeeIdOrderByDateDescIdDesc(1L, 1L, PageRequest.of(0, 20)))
                 .thenReturn(new PageImpl<>(java.util.List.of(payment)));
 
         Page<PaymentDTO> page = paymentService.getPaymentsForUser(1L, PageRequest.of(0, 20));

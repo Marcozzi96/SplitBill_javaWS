@@ -42,6 +42,7 @@ public class FriendshipService {
 
     @Transactional(readOnly = true)
     public Page<User> getFriendsOfUser(Long userId, StatoAmicizia stato, Pageable pageable) {
+        // Già ordinati alfabeticamente dalla query.
         List<User> friends = friendshipRepository.findFriendsOfUser(userId, stato);
         return toPage(friends, pageable);
     }

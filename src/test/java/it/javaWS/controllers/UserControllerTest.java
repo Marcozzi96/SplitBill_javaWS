@@ -164,6 +164,21 @@ class UserControllerTest {
     }
 
     @Test
+    void getFriends_returnsAlphabeticalOrderCaseInsensitive() throws Exception {
+        User user = createUser("mario", "mario@example.com", "Password123!");
+        createFriendship(user, createUser("Zeta", "zeta@example.com", "Password123!"));
+        createFriendship(user, createUser("alpha", "alpha@example.com", "Password123!"));
+        createFriendship(user, createUser("Carlo", "carlo@example.com", "Password123!"));
+
+        mockMvc.perform(get("/user/getFriends")
+                        .with(user(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].username").value("alpha"))
+                .andExpect(jsonPath("$.content[1].username").value("Carlo"))
+                .andExpect(jsonPath("$.content[2].username").value("Zeta"));
+    }
+
+    @Test
     void sendFriendshipRequest_returnsOk() throws Exception {
         User user = createUser("mario", "mario@example.com", "Password123!");
         User target = createUser("luigi", "luigi@example.com", "Password123!");

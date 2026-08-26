@@ -34,18 +34,18 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
 			""")
 	long countFriendshipsWithUser(@Param("userId") Long userId, @Param("otherIds") Set<Long> otherIds);
 
+	// La coppia (user1, user2) è ordinata e univoca: l'EXISTS seleziona "l'altro"
+	// utente dell'amicizia; l'ordinamento alfabetico (case-insensitive) lo fa il DB.
 	@Query("""
-			    SELECT f.user2
-			    FROM Friendship f
-			    WHERE f.user1.id = :userId
-			      AND f.user2.deleted = false
-			      AND f.stato = :statoEnum
-			    UNION
-			    SELECT f.user1
-			    FROM Friendship f
-			    WHERE f.user2.id = :userId
-			      AND f.user1.deleted = false
-			      AND f.stato = :statoEnum
+			    SELECT u FROM User u
+			    WHERE u.deleted = false
+			      AND EXISTS (
+			        SELECT 1 FROM Friendship f
+			        WHERE f.stato = :statoEnum
+			          AND ((f.user1.id = :userId AND f.user2 = u)
+			            OR (f.user2.id = :userId AND f.user1 = u))
+			      )
+			    ORDER BY LOWER(u.username)
 			""")
 	List<User> findFriendsOfUser(@Param("userId") Long userId, @Param("statoEnum") StatoAmicizia statoEnum);
 

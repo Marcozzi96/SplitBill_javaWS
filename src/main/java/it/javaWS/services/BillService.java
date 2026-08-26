@@ -121,7 +121,7 @@ public class BillService {
 
     @Transactional(readOnly = true)
     public Page<BillDTO> getBillsByGroup(Long groupId, Pageable pageable) {
-        Page<Bill> bills = billRepository.findByGroupId(groupId, pageable);
+        Page<Bill> bills = billRepository.findByGroupIdOrderByDateDescIdDesc(groupId, pageable);
         return bills.map(this::toBillDto);
     }
 
@@ -132,7 +132,7 @@ public class BillService {
 
     @Transactional(readOnly = true)
     public Page<BillDTO> getBillsWhereUserIsBuyer(Long userId, Pageable pageable) {
-        Page<Bill> bills = billRepository.findByBuyer_Id(userId, pageable);
+        Page<Bill> bills = billRepository.findByBuyer_IdOrderByDateDescIdDesc(userId, pageable);
         return bills.map(this::toBillDto);
     }
 

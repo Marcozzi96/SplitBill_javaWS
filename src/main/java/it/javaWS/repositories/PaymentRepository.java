@@ -12,7 +12,7 @@ import it.javaWS.models.entities.Payment;
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
-    Page<Payment> findByPayerIdOrPayeeId(Long payerId, Long payeeId, Pageable pageable);
+    Page<Payment> findByPayerIdOrPayeeIdOrderByDateDescIdDesc(Long payerId, Long payeeId, Pageable pageable);
 
     List<Payment> findByPayerIdAndPayeeId(Long payerId, Long payeeId);
 
