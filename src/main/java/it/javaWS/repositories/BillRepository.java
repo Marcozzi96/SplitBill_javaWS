@@ -21,10 +21,10 @@ public interface BillRepository extends JpaRepository<Bill, Long> {
 
 	Page<Bill> findByBuyer_IdOrderByDateDescIdDesc(Long userId, Pageable pageable);
 
-	@Query("SELECT DISTINCT t.bill FROM Transaction t WHERE t.user.id = :userId ORDER BY t.bill.date DESC, t.bill.id DESC")
+	@Query("SELECT b FROM Bill b WHERE EXISTS (SELECT 1 FROM Transaction t WHERE t.bill = b AND t.user.id = :userId) ORDER BY b.date DESC, b.id DESC")
 	List<Bill> findBillsByUserIdThroughTransactions(@Param("userId") Long userId);
 
-	@Query("SELECT DISTINCT t.bill FROM Transaction t WHERE t.user.id = :userId ORDER BY t.bill.date DESC, t.bill.id DESC")
+	@Query("SELECT b FROM Bill b WHERE EXISTS (SELECT 1 FROM Transaction t WHERE t.bill = b AND t.user.id = :userId) ORDER BY b.date DESC, b.id DESC")
 	Page<Bill> findBillsByUserIdThroughTransactions(@Param("userId") Long userId, Pageable pageable);
 
 }
