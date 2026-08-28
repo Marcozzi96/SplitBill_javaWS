@@ -256,6 +256,12 @@ public class SystemMetricsService {
     // --- Hostname ---
 
     private String leggiHostname() {
+        // Se impostata, la variabile d'ambiente SERVER_NAME ha la precedenza
+        // (es. in produzione: nome leggibile al posto dell'ID del container Docker)
+        String serverName = System.getenv("SERVER_NAME");
+        if (serverName != null && !serverName.isBlank()) {
+            return serverName.trim();
+        }
         try {
             return InetAddress.getLocalHost().getHostName();
         } catch (Exception e) {

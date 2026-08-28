@@ -39,6 +39,8 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      # Nome mostrato nella pagina "Stato server" (opzionale; default: hostname del container)
+      SERVER_NAME: ${SERVER_NAME:-}
       # Limite heap JVM: adeguare alla RAM del VPS (768m ok per 2-4 GB totali)
       JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xmx768m}
 

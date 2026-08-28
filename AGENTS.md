@@ -256,6 +256,7 @@ Il profilo attivo è determinato da `SPRING_PROFILES_ACTIVE` (default `dev`).
 | `CORS_ALLOWED_ORIGINS` | Origini CORS aggiuntive separate da virgola (es. `https://app.example.com`); lette da `GlobalCorsConfig` via `app.cors.allowed-origins` |
 | `OPEN_LINK` | URL base frontend |
 | `GOOGLE_CLIENT_ID` | OAuth Client ID "Web application" da Google Cloud Console (stesso valore passato al frontend come build arg `VITE_GOOGLE_CLIENT_ID`) |
+| `SERVER_NAME` | Opzionale: nome del server mostrato da `GET /api/status` nella pagina "Stato server" (default: hostname del container) |
 | `PORT` | Porta del server (default `8080`) |
 
 ---
