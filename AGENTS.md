@@ -76,6 +76,7 @@ src/main/java/it/javaWS/
 │   ├── BalanceController.java
 │   ├── PaymentController.java      # Rimborsi e "dimentica il debito"
 │   ├── StatusController.java
+│   ├── SystemStatusController.java # GET /api/status: metriche di sistema (richiede JWT)
 │   └── advice/
 │       └── GlobalExceptionHandler.java
 ├── services/                        # Logica di business
@@ -86,7 +87,8 @@ src/main/java/it/javaWS/
 │   ├── BalanceService.java
 │   ├── PaymentService.java         # Rimborsi, forgiveDebt (dimentica il debito)
 │   ├── GoogleAuthService.java       # Verifica ID token Google, creazione utente senza password
-│   └── AuthTokenService.java        # Token opachi registrazione/reset password
+│   ├── AuthTokenService.java        # Token opachi registrazione/reset password
+│   └── SystemMetricsService.java    # Metriche host da procfs Linux (fallback MXBean)
 ├── repositories/                    # Spring Data JPA
 │   ├── UserRepository.java
 │   ├── FriendshipRepository.java
@@ -123,6 +125,7 @@ src/main/java/it/javaWS/
 │   │   ├── GoogleLoginRequest.java
 │   │   ├── ForgotPasswordRequest.java
 │   │   ├── ResetPasswordRequest.java
+│   │   ├── ServerStatusDTO.java
 │   │   └── UpdateUserRequest.java
 │   └── enums/
 │       └── GroupRole.java
@@ -133,7 +136,8 @@ src/main/java/it/javaWS/
 │   └── *Exception.java
 └── filters/                         # Filtri servlet
     ├── SuspiciousRequestFilter.java
-    └── AuthRateLimitFilter.java     # Rate limiting in-memory su /auth/**
+    ├── AuthRateLimitFilter.java     # Rate limiting in-memory su /auth/**
+    └── HttpTrafficFilter.java       # Contatori traffico HTTP per /api/status (escluso il path stesso)
 
 src/main/resources/
 ├── application.yml                  # Configurazione comune
@@ -148,6 +152,7 @@ src/test/java/it/javaWS/
 │   ├── GroupServiceTest.java
 │   ├── GroupServiceLazyInitTest.java # Regressione: proxy lazy usati fuori dalla sessione (non @Transactional)
 │   ├── AuthTokenServiceTest.java
+│   ├── SystemMetricsServiceTest.java # Parsing procfs (/proc/stat, meminfo, net/dev, uptime)
 │   └── UserServiceTest.java
 ├── controllers/                     # Test di integrazione REST
 │   ├── AuthControllerTest.java
@@ -155,6 +160,7 @@ src/test/java/it/javaWS/
 │   ├── BillControllerTest.java
 │   ├── PaymentControllerTest.java
 │   ├── GroupControllerTest.java
+│   ├── SystemStatusControllerTest.java
 │   └── BalanceControllerTest.java
 ├── controllers/advice/
 │   └── GlobalExceptionHandlerTest.java
@@ -291,7 +297,7 @@ Il profilo attivo è determinato da `SPRING_PROFILES_ACTIVE` (default `dev`).
 - Autenticazione stateless basata su JWT.
 - CSRF disabilitato perché l'autenticazione non usa cookie/sessioni.
 - Endpoint pubblici: `/auth/**`, `/status/**`, `/swagger-ui/**`, `/v3/api-docs/**`, `/swagger-ui.html`, `/h2-console/**`.
-- Tutti gli altri endpoint richiedono l'header `Authorization: Bearer <token>`.
+- Tutti gli altri endpoint richiedono l'header `Authorization: Bearer <token>`. Tra questi `GET /api/status` (metriche di sistema): il path non ricade nel pattern pubblico `/status/**`, quindi è protetto dalla regola di default.
 - CORS configurato con origini esplicite (`http://localhost:3000` più quelle da `CORS_ALLOWED_ORIGINS`, es. `https://splitbill.it`) più `allowedOriginPatterns` per il dev in LAN (`localhost:*` e range privati `192.168.*`, `10.*`, `172.*` con qualsiasi porta).
 - Presente un filtro `AuthRateLimitFilter` che applica rate limiting in-memory (finestra fissa per IP+endpoint) su `POST /auth/login|register|forgotPassword|resetPassword|google`; oltre soglia risponde `429`.
 - La chiave JWT viene decodificata da Base64 in `JwtUtil` (`Decoders.BASE64`); se `jwt.secret` è vuota (solo dev), viene generata una chiave HS512 effimera con warning.
