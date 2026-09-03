@@ -48,6 +48,20 @@ class AuthTokenServiceTest {
     }
 
     @Test
+    void createRegistrationToken_invalidatesPreviousTokensForSameEmail() {
+        AuthToken previous = new AuthToken();
+        previous.setUsed(false);
+        when(authTokenRepository.findByEmailAndTypeAndUsedFalse("mario@example.com", AuthTokenType.REGISTRATION))
+                .thenReturn(List.of(previous));
+        when(authTokenRepository.save(any(AuthToken.class))).thenAnswer(i -> i.getArgument(0));
+
+        AuthToken token = authTokenService.createRegistrationToken("mario", "mario@example.com", "encoded");
+
+        assertThat(previous.isUsed()).isTrue();
+        assertThat(token.isUsed()).isFalse();
+    }
+
+    @Test
     void createPasswordResetToken_invalidatesPreviousTokens() {
         User user = new User();
         AuthToken previous = new AuthToken();
@@ -112,6 +126,15 @@ class AuthTokenServiceTest {
 
         assertThatThrownBy(() -> authTokenService.validateAndConsume("abc", AuthTokenType.REGISTRATION))
                 .isInstanceOf(InvalidTokenException.class);
+    }
+
+    @Test
+    void deleteExpiredTokens_delegatesToRepository() {
+        when(authTokenRepository.deleteByExpiryDateBefore(any(LocalDateTime.class))).thenReturn(2L);
+
+        authTokenService.deleteExpiredTokens();
+
+        verify(authTokenRepository).deleteByExpiryDateBefore(any(LocalDateTime.class));
     }
 
     private AuthToken validToken(AuthTokenType type) {

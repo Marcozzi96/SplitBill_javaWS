@@ -1,5 +1,6 @@
 package it.javaWS.repositories;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,4 +19,8 @@ public interface AuthTokenRepository extends JpaRepository<AuthToken, Long> {
     Optional<AuthToken> findByToken(String token);
 
     List<AuthToken> findByUserAndTypeAndUsedFalse(User user, AuthTokenType type);
+
+    List<AuthToken> findByEmailAndTypeAndUsedFalse(String email, AuthTokenType type);
+
+    long deleteByExpiryDateBefore(LocalDateTime dateTime);
 }

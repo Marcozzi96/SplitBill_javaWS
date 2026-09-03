@@ -304,7 +304,7 @@ Il profilo attivo è determinato da `SPRING_PROFILES_ACTIVE` (default `dev`).
 - La chiave JWT viene decodificata da Base64 in `JwtUtil` (`Decoders.BASE64`); se `jwt.secret` è vuota (solo dev), viene generata una chiave HS512 effimera con warning.
 - Presente un filtro `SuspiciousRequestFilter` che blocca pattern di richieste sospette (es. `${jndi:...`).
 
-> **Nota di sicurezza (risolta nello Sprint 5)**: i token di conferma registrazione e di reset password sono ora **opachi** (UUID casuali salvati su DB nella tabella `auth_tokens`), con scadenza (24h registrazione, 15 minuti reset) e uso singolo. La password non transita più nei claim JWT: per le registrazioni in attesa viene salvata solo in forma encodata (BCrypt) nel record del token.
+> **Nota di sicurezza (risolta nello Sprint 5)**: i token di conferma registrazione e di reset password sono ora **opachi** (UUID casuali salvati su DB nella tabella `auth_tokens`), con scadenza (24h registrazione, 15 minuti reset) e uso singolo. Alla creazione di un nuovo token, i precedenti non usati per la stessa email (registrazione) o lo stesso utente (reset password) vengono invalidati (`used=true`): è attivo al massimo un token per tipo. Un job `@Scheduled` (`AuthTokenService.deleteExpiredTokens`, ogni notte alle 03:00) elimina i record scaduti. La password non transita più nei claim JWT: per le registrazioni in attesa viene salvata solo in forma encodata (BCrypt) nel record del token.
 
 ---
 
