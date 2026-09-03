@@ -12,6 +12,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+import static org.hamcrest.Matchers.hasItem;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -88,6 +90,42 @@ class GroupControllerTest {
         mockMvc.perform(get("/groups/{groupId}/members", group.getId())
                         .with(user(outsider)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getGroupMembers_showsRelazioneAmicizia() throws Exception {
+        User sender = createUser("sender", "sender@example.com");
+        User recipient = createUser("recipient", "recipient@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, sender, GroupRole.ADMIN);
+        addMember(group, recipient, GroupRole.MEMBER);
+
+        // Senza alcuna amicizia la relazione è NESSUNA
+        mockMvc.perform(get("/groups/{groupId}/members", group.getId())
+                        .with(user(sender)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.userId == %d)].relazione".formatted(recipient.getId()),
+                        hasItem("NESSUNA")));
+
+        mockMvc.perform(post("/user/sendFriendshipRequest")
+                        .with(user(sender))
+                        .param("name", recipient.getUsername())
+                        .param("message", "Ciao"))
+                .andExpect(status().isOk());
+
+        // Per il mittente la richiesta risulta inviata
+        mockMvc.perform(get("/groups/{groupId}/members", group.getId())
+                        .with(user(sender)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.userId == %d)].relazione".formatted(recipient.getId()),
+                        hasItem("RICHIESTA_INVIATA")));
+
+        // Per il destinatario la richiesta risulta ricevuta
+        mockMvc.perform(get("/groups/{groupId}/members", group.getId())
+                        .with(user(recipient)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.userId == %d)].relazione".formatted(sender.getId()),
+                        hasItem("RICHIESTA_RICEVUTA")));
     }
 
     @Test

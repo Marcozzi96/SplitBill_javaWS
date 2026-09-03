@@ -34,6 +34,14 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
 			""")
 	long countFriendshipsWithUser(@Param("userId") Long userId, @Param("otherIds") Set<Long> otherIds);
 
+	@Query("""
+			    SELECT f FROM Friendship f
+			    WHERE f.user1.deleted = false AND f.user2.deleted = false
+			      AND ((f.user1.id = :userId AND f.user2.id IN :otherIds)
+			       OR (f.user2.id = :userId AND f.user1.id IN :otherIds))
+			""")
+	List<Friendship> findAllBetweenUserAndOthers(@Param("userId") Long userId, @Param("otherIds") Set<Long> otherIds);
+
 	// La coppia (user1, user2) è ordinata e univoca: l'EXISTS seleziona "l'altro"
 	// utente dell'amicizia; l'ordinamento alfabetico (case-insensitive) lo fa il DB.
 	@Query("""

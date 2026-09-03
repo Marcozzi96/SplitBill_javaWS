@@ -2,6 +2,7 @@ package it.javaWS.models.dto;
 
 import java.time.LocalDate;
 
+import it.javaWS.enums.RelazioneAmicizia;
 import it.javaWS.models.entities.UserGroup;
 import it.javaWS.models.enums.GroupRole;
 import lombok.Data;
@@ -16,6 +17,9 @@ public class GroupMemberDTO {
     private LocalDate dataIngresso;
     // true per gli account eliminati (soft delete): i dati personali sono mascherati
     private boolean deleted;
+    // Relazione di amicizia con l'utente autenticato; null per i membri eliminati
+    // e per il richiedente stesso, valorizzata dal service
+    private RelazioneAmicizia relazione;
 
     public GroupMemberDTO(UserGroup userGroup) {
         this.userId = userGroup.getUser().getId();

@@ -124,7 +124,7 @@ public class GroupController {
 	public ResponseEntity<List<GroupMemberDTO>> getGroupMembers(@AuthenticationPrincipal User user,
 			@PathVariable Long groupId) {
 		groupService.getGroupDto(groupId, user.getId());
-		return ResponseEntity.ok(groupService.getActiveMembers(groupId));
+		return ResponseEntity.ok(groupService.getActiveMembers(groupId, user.getId()));
 	}
 
 	@Operation(summary = "Modifica un gruppo", description = "Modifica nome e descrizione di un gruppo. Solo l'admin può eseguire questa operazione.")

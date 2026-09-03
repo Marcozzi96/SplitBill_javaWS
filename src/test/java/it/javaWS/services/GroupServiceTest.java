@@ -20,9 +20,12 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import it.javaWS.enums.RelazioneAmicizia;
+import it.javaWS.enums.StatoAmicizia;
 import it.javaWS.models.dto.GroupMemberDTO;
 import it.javaWS.models.dto.SettlementDTO;
 import it.javaWS.models.dto.UserDTO;
+import it.javaWS.models.entities.Friendship;
 import it.javaWS.models.entities.Group;
 import it.javaWS.models.entities.User;
 import it.javaWS.models.entities.UserGroup;
@@ -57,6 +60,9 @@ class GroupServiceTest {
 
     @Mock
     private BalanceService balanceService;
+
+    @Mock
+    private FriendshipService friendshipService;
 
     @InjectMocks
     private GroupService groupService;
@@ -404,10 +410,81 @@ class GroupServiceTest {
         when(groupRepository.findById(1L)).thenReturn(Optional.of(group));
         when(userGroupRepository.findActiveByGroupId(1L)).thenReturn(List.of(userGroup));
 
-        List<GroupMemberDTO> members = groupService.getActiveMembers(1L);
+        List<GroupMemberDTO> members = groupService.getActiveMembers(1L, 2L);
 
         assertThat(members).hasSize(1);
         assertThat(members.getFirst().getUserId()).isEqualTo(2L);
+        // Il richiedente stesso non ha relazione valorizzata
+        assertThat(members.getFirst().getRelazione()).isNull();
+    }
+
+    @Test
+    void getActiveMembers_setsRelazioneFromFriendship() {
+        Group group = new Group();
+        group.setId(1L);
+
+        User requester = new User();
+        requester.setId(1L);
+        requester.setUsername("richiedente");
+
+        User member = new User();
+        member.setId(2L);
+        member.setUsername("membro");
+
+        UserGroup requesterGroup = new UserGroup();
+        requesterGroup.setUser(requester);
+        requesterGroup.setGroup(group);
+        requesterGroup.setRole(GroupRole.ADMIN);
+
+        UserGroup memberGroup = new UserGroup();
+        memberGroup.setUser(member);
+        memberGroup.setGroup(group);
+        memberGroup.setRole(GroupRole.MEMBER);
+
+        // Richiesta in attesa inviata dal richiedente verso il membro
+        Friendship friendship = new Friendship();
+        friendship.setUser1(requester);
+        friendship.setUser2(member);
+        friendship.setUserToBeConfirmed(member);
+        friendship.setStato(StatoAmicizia.IN_ATTESA);
+
+        when(groupRepository.findById(1L)).thenReturn(Optional.of(group));
+        when(userGroupRepository.findActiveByGroupId(1L)).thenReturn(List.of(requesterGroup, memberGroup));
+        when(friendshipService.findAllBetweenUserAndOthers(1L, Set.of(2L))).thenReturn(List.of(friendship));
+
+        List<GroupMemberDTO> members = groupService.getActiveMembers(1L, 1L);
+
+        GroupMemberDTO requesterDto = members.stream().filter(m -> m.getUserId().equals(1L)).findFirst().orElseThrow();
+        GroupMemberDTO memberDto = members.stream().filter(m -> m.getUserId().equals(2L)).findFirst().orElseThrow();
+
+        assertThat(requesterDto.getRelazione()).isNull();
+        assertThat(memberDto.getRelazione()).isEqualTo(RelazioneAmicizia.RICHIESTA_INVIATA);
+    }
+
+    @Test
+    void getActiveMembers_withoutFriendship_setsNessuna() {
+        Group group = new Group();
+        group.setId(1L);
+
+        User requester = new User();
+        requester.setId(1L);
+
+        User member = new User();
+        member.setId(2L);
+        member.setUsername("membro");
+
+        UserGroup memberGroup = new UserGroup();
+        memberGroup.setUser(member);
+        memberGroup.setGroup(group);
+        memberGroup.setRole(GroupRole.MEMBER);
+
+        when(groupRepository.findById(1L)).thenReturn(Optional.of(group));
+        when(userGroupRepository.findActiveByGroupId(1L)).thenReturn(List.of(memberGroup));
+        when(friendshipService.findAllBetweenUserAndOthers(1L, Set.of(2L))).thenReturn(List.of());
+
+        List<GroupMemberDTO> members = groupService.getActiveMembers(1L, 1L);
+
+        assertThat(members.getFirst().getRelazione()).isEqualTo(RelazioneAmicizia.NESSUNA);
     }
 
     @Test

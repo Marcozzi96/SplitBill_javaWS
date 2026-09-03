@@ -32,7 +32,8 @@ import it.javaWS.services.UserService;
 import it.javaWS.utils.EmailUtil;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "app.rate-limit.limit=5")
+        // client-id forzato vuoto: i test non devono dipendere dalla variabile d'ambiente GOOGLE_CLIENT_ID
+        properties = { "app.rate-limit.limit=5", "app.google.client-id=" })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class AuthControllerTest {
 

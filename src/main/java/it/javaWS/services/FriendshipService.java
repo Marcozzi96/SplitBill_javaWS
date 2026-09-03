@@ -36,6 +36,11 @@ public class FriendshipService {
     }
 
     @Transactional(readOnly = true)
+    public List<Friendship> findAllBetweenUserAndOthers(Long userId, Set<Long> otherIds) {
+        return friendshipRepository.findAllBetweenUserAndOthers(userId, otherIds);
+    }
+
+    @Transactional(readOnly = true)
     public List<User> getFriendsOfUser(Long userId, StatoAmicizia stato) {
         return friendshipRepository.findFriendsOfUser(userId, stato);
     }

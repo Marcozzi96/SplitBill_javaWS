@@ -3,6 +3,7 @@ package it.javaWS.services;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -14,11 +15,14 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import it.javaWS.enums.RelazioneAmicizia;
+import it.javaWS.enums.StatoAmicizia;
 import it.javaWS.models.dto.GroupDTO;
 import it.javaWS.models.dto.GroupMemberDTO;
 import it.javaWS.models.dto.SettlementDTO;
 import it.javaWS.models.dto.UserDTO;
 import it.javaWS.models.entities.Bill;
+import it.javaWS.models.entities.Friendship;
 import it.javaWS.models.entities.Group;
 import it.javaWS.models.entities.Transaction;
 import it.javaWS.models.entities.User;
@@ -44,16 +48,19 @@ public class GroupService {
 	private final BillRepository billRepository;
 	private final TransactionRepository transactionRepository;
 	private final BalanceService balanceService;
+	private final FriendshipService friendshipService;
 
 	public GroupService(GroupRepository groupRepository, UserRepository userRepository,
 			UserGroupRepository userGroupRepository, BillRepository billRepository,
-			TransactionRepository transactionRepository, BalanceService balanceService) {
+			TransactionRepository transactionRepository, BalanceService balanceService,
+			FriendshipService friendshipService) {
 		this.groupRepository = groupRepository;
 		this.userRepository = userRepository;
 		this.userGroupRepository = userGroupRepository;
 		this.billRepository = billRepository;
 		this.transactionRepository = transactionRepository;
 		this.balanceService = balanceService;
+		this.friendshipService = friendshipService;
 	}
 
 	@Transactional
@@ -346,13 +353,53 @@ public class GroupService {
     }
 
     @Transactional(readOnly = true)
-    public List<GroupMemberDTO> getActiveMembers(Long groupId) {
+    public List<GroupMemberDTO> getActiveMembers(Long groupId, Long requesterId) {
         groupRepository.findById(groupId)
                 .orElseThrow(() -> new GroupNotFoundException("Gruppo non trovato"));
 
-        return userGroupRepository.findActiveByGroupId(groupId).stream()
+        List<GroupMemberDTO> members = userGroupRepository.findActiveByGroupId(groupId).stream()
                 .map(GroupMemberDTO::new)
                 .toList();
+
+        // Relazione di amicizia con il richiedente, calcolata con una sola query
+        // bulk (no N+1). Resta null per i membri eliminati e per il richiedente stesso.
+        Map<Long, GroupMemberDTO> candidati = members.stream()
+                .filter(m -> !m.isDeleted() && !m.getUserId().equals(requesterId))
+                .collect(Collectors.toMap(GroupMemberDTO::getUserId, m -> m));
+
+        if (candidati.isEmpty()) {
+            return members;
+        }
+
+        List<Friendship> amicizie = friendshipService.findAllBetweenUserAndOthers(requesterId, candidati.keySet());
+        for (Friendship f : amicizie) {
+            Long altroId = f.getUser1().getId().equals(requesterId) ? f.getUser2().getId() : f.getUser1().getId();
+            GroupMemberDTO dto = candidati.get(altroId);
+            if (dto != null) {
+                dto.setRelazione(calcolaRelazione(f, requesterId));
+            }
+        }
+        // Membri senza alcuna riga di amicizia con il richiedente
+        candidati.values().stream()
+                .filter(m -> m.getRelazione() == null)
+                .forEach(m -> m.setRelazione(RelazioneAmicizia.NESSUNA));
+
+        return members;
+    }
+
+    // userToBeConfirmed è il destinatario della richiesta: se coincide con il
+    // richiedente la richiesta è ricevuta (o era stata rifiutata da me),
+    // altrimenti è stata inviata da me (o rifiutata dall'altro).
+    private RelazioneAmicizia calcolaRelazione(Friendship f, Long requesterId) {
+        boolean devoConfermareIo = f.getUserToBeConfirmed().getId().equals(requesterId);
+        return switch (f.getStato()) {
+        case StatoAmicizia.ACCETTATA -> RelazioneAmicizia.AMICI;
+        case StatoAmicizia.IN_ATTESA ->
+            devoConfermareIo ? RelazioneAmicizia.RICHIESTA_RICEVUTA : RelazioneAmicizia.RICHIESTA_INVIATA;
+        case StatoAmicizia.RIFIUTATA ->
+            // Se avevo rifiutato io, il reinvio è consentito: la relazione è NESSUNA
+            devoConfermareIo ? RelazioneAmicizia.NESSUNA : RelazioneAmicizia.RICHIESTA_RIFIUTATA;
+        };
     }
 
     @Transactional
