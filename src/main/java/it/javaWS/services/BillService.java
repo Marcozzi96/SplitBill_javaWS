@@ -2,6 +2,7 @@ package it.javaWS.services;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -19,10 +20,12 @@ import it.javaWS.models.dto.BillDTO;
 import it.javaWS.models.dto.TransactionDTO;
 import it.javaWS.models.entities.Bill;
 import it.javaWS.models.entities.Group;
+import it.javaWS.models.entities.ShoppingItem;
 import it.javaWS.models.entities.Transaction;
 import it.javaWS.models.entities.User;
 import it.javaWS.models.entities.UserGroup;
 import it.javaWS.repositories.BillRepository;
+import it.javaWS.repositories.ShoppingItemRepository;
 import it.javaWS.repositories.TransactionRepository;
 import it.javaWS.repositories.UserRepository;
 import it.javaWS.utils.BillNotFoundException;
@@ -38,21 +41,23 @@ public class BillService {
     private final GroupService groupService;
     private final UserRepository userRepository;
     private final FriendshipService friendshipService;
+    private final ShoppingItemRepository shoppingItemRepository;
 
     public BillService(BillRepository billRepository, TransactionRepository transactionRepository,
             BalanceService balanceService, GroupService groupService, UserRepository userRepository,
-            FriendshipService friendshipService) {
+            FriendshipService friendshipService, ShoppingItemRepository shoppingItemRepository) {
         this.billRepository = billRepository;
         this.transactionRepository = transactionRepository;
         this.balanceService = balanceService;
         this.groupService = groupService;
         this.userRepository = userRepository;
         this.friendshipService = friendshipService;
+        this.shoppingItemRepository = shoppingItemRepository;
     }
 
     @Transactional
     public Bill createBill(String description, BigDecimal amount, String notes,
-            User buyer, Group group, Map<User, BigDecimal> usersDebit) {
+            User buyer, Group group, Map<User, BigDecimal> usersDebit, List<ShoppingItem> shoppingItems) {
 
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidBillException("L'importo della spesa deve essere positivo");
@@ -105,13 +110,29 @@ public class BillService {
 
         balanceService.applyBill(savedBill);
 
+        // Articoli della lista spesa acquistati con questa spesa: li marca come
+        // comprati e salva sulla spesa uno snapshot testuale ("nome" oppure
+        // "nome (nota)"). Update/delete della spesa non retroagiscono sulla lista.
+        if (shoppingItems != null && !shoppingItems.isEmpty()) {
+            List<String> voci = new LinkedList<>();
+            for (ShoppingItem item : shoppingItems.stream()
+                    .sorted(Comparator.comparing(ShoppingItem::getId)).toList()) {
+                item.setToBuy(false);
+                shoppingItemRepository.save(item);
+                voci.add(item.getNote() != null && !item.getNote().isBlank()
+                        ? item.getName() + " (" + item.getNote() + ")"
+                        : item.getName());
+            }
+            savedBill.setPurchasedItems(String.join(", ", voci));
+        }
+
         return savedBill;
     }
 
     @Transactional
     public BillDTO createBillDto(String description, BigDecimal amount, String notes,
-            User buyer, Group group, Map<User, BigDecimal> usersDebit) {
-        return toBillDto(createBill(description, amount, notes, buyer, group, usersDebit));
+            User buyer, Group group, Map<User, BigDecimal> usersDebit, List<ShoppingItem> shoppingItems) {
+        return toBillDto(createBill(description, amount, notes, buyer, group, usersDebit, shoppingItems));
     }
 
     @Transactional(readOnly = true)

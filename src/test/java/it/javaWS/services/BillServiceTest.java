@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -18,9 +19,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import it.javaWS.models.entities.Bill;
 import it.javaWS.models.entities.Group;
+import it.javaWS.models.entities.ShoppingItem;
 import it.javaWS.models.entities.Transaction;
 import it.javaWS.models.entities.User;
 import it.javaWS.repositories.BillRepository;
+import it.javaWS.repositories.ShoppingItemRepository;
 import it.javaWS.repositories.TransactionRepository;
 import it.javaWS.repositories.UserRepository;
 import it.javaWS.utils.InvalidBillException;
@@ -45,6 +48,9 @@ class BillServiceTest {
 
     @Mock
     private FriendshipService friendshipService;
+
+    @Mock
+    private ShoppingItemRepository shoppingItemRepository;
 
     @InjectMocks
     private BillService billService;
@@ -77,7 +83,7 @@ class BillServiceTest {
                 b, new BigDecimal("40"),
                 c, new BigDecimal("60"));
 
-        Bill bill = billService.createBill("Cena", new BigDecimal("100"), "note", buyer, group, debits);
+        Bill bill = billService.createBill("Cena", new BigDecimal("100"), "note", buyer, group, debits, List.of());
 
         assertThat(bill.getTransactions()).hasSize(3);
         assertThat(bill.getTransactions())
@@ -101,7 +107,7 @@ class BillServiceTest {
                 b, new BigDecimal("40"),
                 c, new BigDecimal("30"));
 
-        Bill bill = billService.createBill("Cena", new BigDecimal("100"), "note", buyer, group, debits);
+        Bill bill = billService.createBill("Cena", new BigDecimal("100"), "note", buyer, group, debits, List.of());
 
         assertThat(bill.getTransactions()).hasSize(3);
         assertThat(bill.getTransactions())
@@ -122,7 +128,7 @@ class BillServiceTest {
                 buyer, new BigDecimal("50"));
 
         InvalidBillException exception = assertThrows(InvalidBillException.class,
-                () -> billService.createBill("Cena", new BigDecimal("100"), "note", buyer, group, debits));
+                () -> billService.createBill("Cena", new BigDecimal("100"), "note", buyer, group, debits, List.of()));
         assertThat(exception.getMessage()).contains("non corrisponde");
     }
 
@@ -136,7 +142,7 @@ class BillServiceTest {
                 b, new BigDecimal("30"));
 
         InvalidBillException exception = assertThrows(InvalidBillException.class,
-                () -> billService.createBill("Cena", new BigDecimal("100"), "note", buyer, group, debits));
+                () -> billService.createBill("Cena", new BigDecimal("100"), "note", buyer, group, debits, List.of()));
         assertThat(exception.getMessage()).contains("non corrisponde");
     }
 
@@ -151,8 +157,62 @@ class BillServiceTest {
                 buyer, new BigDecimal("50"));
 
         InvalidBillException exception = assertThrows(InvalidBillException.class,
-                () -> billService.createBill("Cena", new BigDecimal("-10"), "note", buyer, group, debits));
+                () -> billService.createBill("Cena", new BigDecimal("-10"), "note", buyer, group, debits, List.of()));
         assertThat(exception.getMessage()).contains("positivo");
+    }
+
+    @Test
+    void createBill_withShoppingItems_marksPurchasedAndSnapshots() {
+        mockRepositories();
+        when(shoppingItemRepository.save(any(ShoppingItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        User buyer = createUser(1L);
+        User b = createUser(2L);
+        Group group = createGroup(10L);
+
+        Map<User, BigDecimal> debits = Map.of(
+                b, new BigDecimal("50"),
+                buyer, new BigDecimal("50"));
+
+        ShoppingItem pane = createShoppingItem(1L, "Pane", null, group);
+        ShoppingItem latte = createShoppingItem(2L, "Latte", "intero", group);
+
+        Bill bill = billService.createBill("Spesa", new BigDecimal("100"), "note", buyer, group, debits,
+                List.of(latte, pane));
+
+        assertThat(pane.isToBuy()).isFalse();
+        assertThat(latte.isToBuy()).isFalse();
+        verify(shoppingItemRepository).save(pane);
+        verify(shoppingItemRepository).save(latte);
+        // Snapshot ordinato per id: "nome" oppure "nome (nota)".
+        assertThat(bill.getPurchasedItems()).isEqualTo("Pane, Latte (intero)");
+    }
+
+    @Test
+    void createBill_withoutShoppingItems_noSnapshot() {
+        mockRepositories();
+
+        User buyer = createUser(1L);
+        User b = createUser(2L);
+        Group group = createGroup(10L);
+
+        Map<User, BigDecimal> debits = Map.of(
+                b, new BigDecimal("50"),
+                buyer, new BigDecimal("50"));
+
+        Bill bill = billService.createBill("Cena", new BigDecimal("100"), "note", buyer, group, debits, null);
+
+        assertThat(bill.getPurchasedItems()).isNull();
+    }
+
+    private ShoppingItem createShoppingItem(Long id, String name, String note, Group group) {
+        ShoppingItem item = new ShoppingItem();
+        item.setId(id);
+        item.setName(name);
+        item.setNote(note);
+        item.setToBuy(true);
+        item.setGroup(group);
+        return item;
     }
 
     private User createUser(Long id) {

@@ -1,5 +1,6 @@
 package it.javaWS.controllers;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -28,6 +29,7 @@ import it.javaWS.enums.StatoAmicizia;
 import it.javaWS.models.entities.Bill;
 import it.javaWS.models.entities.Friendship;
 import it.javaWS.models.entities.Group;
+import it.javaWS.models.entities.ShoppingItem;
 import it.javaWS.models.entities.Transaction;
 import it.javaWS.models.entities.User;
 import it.javaWS.models.entities.UserGroup;
@@ -35,6 +37,7 @@ import it.javaWS.models.enums.GroupRole;
 import it.javaWS.repositories.BillRepository;
 import it.javaWS.repositories.FriendshipRepository;
 import it.javaWS.repositories.GroupRepository;
+import it.javaWS.repositories.ShoppingItemRepository;
 import it.javaWS.repositories.TransactionRepository;
 import it.javaWS.repositories.UserGroupRepository;
 import it.javaWS.repositories.UserRepository;
@@ -72,6 +75,9 @@ class BillControllerTest {
 
     @Autowired
     private FriendshipRepository friendshipRepository;
+
+    @Autowired
+    private ShoppingItemRepository shoppingItemRepository;
 
     @Test
     void deleteBill_asBuyer_returnsOk() throws Exception {
@@ -706,6 +712,166 @@ class BillControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void createBill_withShoppingItems_marksPurchasedAndSnapshots() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User other = createUser("other", "other@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, other, GroupRole.MEMBER);
+        ShoppingItem pane = createShoppingItem(group, "Pane", null);
+        ShoppingItem latte = createShoppingItem(group, "Latte", "intero");
+
+        Map<Long, BigDecimal> debits = Map.of(
+                other.getId(), new BigDecimal("50"),
+                buyer.getId(), new BigDecimal("50"));
+
+        mockMvc.perform(post("/bills/new")
+                        .with(user(buyer))
+                        .param("description", "Spesa al supermercato")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .param("groupId", group.getId().toString())
+                        .param("shoppingItemIds", pane.getId().toString(), latte.getId().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.purchasedItems").value("Pane, Latte (intero)"));
+
+        assertThat(shoppingItemRepository.findById(pane.getId()).orElseThrow().isToBuy()).isFalse();
+        assertThat(shoppingItemRepository.findById(latte.getId()).orElseThrow().isToBuy()).isFalse();
+    }
+
+    @Test
+    void createBill_shoppingItemsWithoutGroupId_returnsBadRequest() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User friend = createUser("friend", "friend@example.com");
+        makeFriends(buyer, friend);
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        ShoppingItem pane = createShoppingItem(group, "Pane", null);
+
+        Map<Long, BigDecimal> debits = Map.of(
+                friend.getId(), new BigDecimal("50"),
+                buyer.getId(), new BigDecimal("50"));
+
+        mockMvc.perform(post("/bills/new")
+                        .with(user(buyer))
+                        .param("description", "Pizza")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .param("shoppingItemIds", pane.getId().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isBadRequest());
+
+        // L'articolo non deve essere stato toccato.
+        assertThat(shoppingItemRepository.findById(pane.getId()).orElseThrow().isToBuy()).isTrue();
+    }
+
+    @Test
+    void createBill_shoppingItemFromOtherGroup_returnsBadRequest() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User other = createUser("other", "other@example.com");
+        Group group = createGroup("Trip");
+        Group otherGroup = createGroup("Casa");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, other, GroupRole.MEMBER);
+        ShoppingItem foreignItem = createShoppingItem(otherGroup, "Pane", null);
+
+        Map<Long, BigDecimal> debits = Map.of(
+                other.getId(), new BigDecimal("50"),
+                buyer.getId(), new BigDecimal("50"));
+
+        mockMvc.perform(post("/bills/new")
+                        .with(user(buyer))
+                        .param("description", "Spesa")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .param("groupId", group.getId().toString())
+                        .param("shoppingItemIds", foreignItem.getId().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isBadRequest());
+
+        assertThat(shoppingItemRepository.findById(foreignItem.getId()).orElseThrow().isToBuy()).isTrue();
+    }
+
+    @Test
+    void updateBill_doesNotTouchShoppingItemsOrSnapshot() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User other = createUser("other", "other@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, other, GroupRole.MEMBER);
+        ShoppingItem pane = createShoppingItem(group, "Pane", null);
+
+        Map<Long, BigDecimal> debits = Map.of(
+                other.getId(), new BigDecimal("50"),
+                buyer.getId(), new BigDecimal("50"));
+
+        mockMvc.perform(post("/bills/new")
+                        .with(user(buyer))
+                        .param("description", "Spesa")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .param("groupId", group.getId().toString())
+                        .param("shoppingItemIds", pane.getId().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isOk());
+
+        Bill bill = billRepository.findByGroupId(group.getId()).getFirst();
+
+        mockMvc.perform(put("/bills/{id}", bill.getId())
+                        .with(user(buyer))
+                        .param("description", "Spesa modificata")
+                        .param("amount", "100")
+                        .param("notes", "aggiornata")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.purchasedItems").value("Pane"));
+
+        // L'articolo resta acquistato: l'update non retroagisce sulla lista.
+        assertThat(shoppingItemRepository.findById(pane.getId()).orElseThrow().isToBuy()).isFalse();
+    }
+
+    @Test
+    void deleteBill_doesNotTouchShoppingItems() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User other = createUser("other", "other@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, other, GroupRole.MEMBER);
+        ShoppingItem pane = createShoppingItem(group, "Pane", null);
+
+        Map<Long, BigDecimal> debits = Map.of(
+                other.getId(), new BigDecimal("50"),
+                buyer.getId(), new BigDecimal("50"));
+
+        mockMvc.perform(post("/bills/new")
+                        .with(user(buyer))
+                        .param("description", "Spesa")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .param("groupId", group.getId().toString())
+                        .param("shoppingItemIds", pane.getId().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isOk());
+
+        Bill bill = billRepository.findByGroupId(group.getId()).getFirst();
+
+        mockMvc.perform(delete("/bills/{id}", bill.getId())
+                        .with(user(buyer)))
+                .andExpect(status().isOk());
+
+        // L'articolo non viene ripristinato né eliminato con la spesa.
+        ShoppingItem ricaricato = shoppingItemRepository.findById(pane.getId()).orElseThrow();
+        assertThat(ricaricato.isToBuy()).isFalse();
+    }
+
     private User createUser(String username, String email) {
         User user = new User();
         user.setUsername(username);
@@ -754,6 +920,16 @@ class BillControllerTest {
     private User markDeleted(User user) {
         user.setDeleted(true);
         return userRepository.save(user);
+    }
+
+    private ShoppingItem createShoppingItem(Group group, String name, String note) {
+        ShoppingItem item = new ShoppingItem();
+        item.setGroup(group);
+        item.setName(name);
+        item.setNote(note);
+        item.setToBuy(true);
+        item.setCreatedAt(LocalDateTime.now());
+        return shoppingItemRepository.save(item);
     }
 
     private Bill createBill(Group group, User buyer, User debtor, BigDecimal amount) {

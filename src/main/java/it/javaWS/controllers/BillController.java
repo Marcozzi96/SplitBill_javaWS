@@ -2,6 +2,7 @@ package it.javaWS.controllers;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -29,11 +30,13 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import it.javaWS.models.dto.BillDTO;
 import it.javaWS.models.dto.UserDTO;
 import it.javaWS.models.entities.Group;
+import it.javaWS.models.entities.ShoppingItem;
 import it.javaWS.models.entities.User;
 import it.javaWS.models.entities.UserGroup;
 import it.javaWS.services.BillService;
 import it.javaWS.services.FriendshipService;
 import it.javaWS.services.GroupService;
+import it.javaWS.services.ShoppingItemService;
 import it.javaWS.services.UserService;
 import it.javaWS.utils.UnauthorizedAccessException;
 
@@ -46,13 +49,15 @@ public class BillController {
 	private final UserService userService;
 	private final GroupService groupService;
 	private final FriendshipService friendshipService;
+	private final ShoppingItemService shoppingItemService;
 
 	public BillController(BillService billService, UserService userService, GroupService groupService,
-			FriendshipService friendshipService) {
+			FriendshipService friendshipService, ShoppingItemService shoppingItemService) {
 		this.billService = billService;
 		this.userService = userService;
 		this.groupService = groupService;
 		this.friendshipService = friendshipService;
+		this.shoppingItemService = shoppingItemService;
 	}
 
 	@Operation(summary = "Crea una nuova spesa", description = "Crea una spesa con suddivisione personalizzata dei debiti. La somma dei debiti deve essere esattamente uguale all'importo totale. Senza groupId la spesa è personale (tra amici): i debitori devono essere amici del buyer. Con buyerId si indica chi ha pagato (default: utente autenticato).")
@@ -64,6 +69,7 @@ public class BillController {
 	public ResponseEntity<BillDTO> createBill(@AuthenticationPrincipal User user, @RequestParam String description,
 			@RequestParam BigDecimal amount, @RequestParam String notes, @RequestParam(required = false) Long groupId,
 			@RequestParam(required = false) Long buyerId,
+			@RequestParam(required = false) List<Long> shoppingItemIds,
 			@RequestBody Map<Long, BigDecimal> usersDebit) {
 
 		if (BigDecimal.ZERO.compareTo(amount) > 0)
@@ -115,12 +121,29 @@ public class BillController {
 			throw new IllegalArgumentException("Un utente eliminato non può partecipare a nuove spese");
 		}
 
+		// Articoli della lista spesa da segnare come acquistati con questa spesa.
+		List<ShoppingItem> shoppingItems = List.of();
+		if (shoppingItemIds != null && !shoppingItemIds.isEmpty()) {
+			if (groupId == null) {
+				throw new IllegalArgumentException("groupId obbligatorio quando si acquistano articoli della lista spesa");
+			}
+			shoppingItems = shoppingItemService.getItemsByIds(shoppingItemIds);
+			if (shoppingItems.size() != shoppingItemIds.stream().distinct().count()) {
+				throw new IllegalArgumentException("Uno o più articoli non esistono");
+			}
+			for (ShoppingItem item : shoppingItems) {
+				if (!item.getGroup().getId().equals(groupId)) {
+					throw new IllegalArgumentException("Uno o più articoli non appartengono al gruppo");
+				}
+			}
+		}
+
 		Map<User, BigDecimal> usersDebitConvertito = new HashMap<>();
 		for (User debtor : clients) {
 			usersDebitConvertito.put(debtor, usersDebit.get(debtor.getId()));
 		}
 
-		return ResponseEntity.ok(billService.createBillDto(description, amount, notes, buyer, group, usersDebitConvertito));
+		return ResponseEntity.ok(billService.createBillDto(description, amount, notes, buyer, group, usersDebitConvertito, shoppingItems));
 	}
 
 	@Operation(summary = "Recupera le spese di un gruppo", description = "Restituisce le spese del gruppo con paginazione")

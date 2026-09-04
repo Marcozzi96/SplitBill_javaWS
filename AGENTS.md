@@ -26,6 +26,7 @@ Funzionalità principali:
   - Bilanci e settlement pairwise supportano `group_id` null (spese personali e uscite da gruppo).
   - Gli utenti eliminati (`deleted=true`) non possono partecipare a **nuove** spese, né come buyer né come debitori (`POST /bills/new`); in modifica (`PUT /bills/{id}`) restano ammessi solo se già coinvolti nella spesa esistente — un eliminato mai presente prima, o scelto come nuovo buyer, viene rifiutato con 400.
 - Rimborsi tra utenti: `POST /payments` (l'importo non può superare il debito effettivo) e `GET /payments` (cronologia paginata).
+- Lista della spesa di gruppo (`/shopping-items`): CRUD riservato ai membri attivi (`GET /shopping-items/group/{groupId}` paginata con filtro `toBuy` opzionale, ordinata `toBuy DESC, id ASC`; `POST /shopping-items/new` rifiuta duplicati case-insensitive; `PUT /shopping-items/{id}?toBuy=` toggle; `DELETE /shopping-items/{id}`). In `POST /bills/new` il parametro opzionale `shoppingItemIds` marca gli articoli come acquistati e salva sulla spesa lo snapshot testuale `purchasedItems` (esposto in `BillDTO`); update/delete della spesa non retroagiscono sulla lista.
 - "Dimentica il debito": `POST /payments/forgive?payerId=<id>[&groupId=<id>]` registra un rimborso fittizio pari al debito residuo di un **utente eliminato** verso il creditore autenticato, azzerandolo (note: "Debito dimenticato (utente eliminato)"). Con `groupId` il creditore deve essere un membro attivo del gruppo; non è richiesta la membership del payer eliminato.
 - Calcolo del saldo netto di un utente.
 - Documentazione API tramite Swagger UI.
@@ -75,6 +76,7 @@ src/main/java/it/javaWS/
 │   ├── BillController.java
 │   ├── BalanceController.java
 │   ├── PaymentController.java      # Rimborsi e "dimentica il debito"
+│   ├── ShoppingItemController.java # Lista della spesa di gruppo (/shopping-items)
 │   ├── StatusController.java
 │   ├── SystemStatusController.java # GET /api/status: metriche di sistema (richiede JWT)
 │   └── advice/
@@ -86,6 +88,7 @@ src/main/java/it/javaWS/
 │   ├── BillService.java
 │   ├── BalanceService.java
 │   ├── PaymentService.java         # Rimborsi, forgiveDebt (dimentica il debito)
+│   ├── ShoppingItemService.java    # Lista della spesa: CRUD con check membership
 │   ├── GoogleAuthService.java       # Verifica ID token Google, creazione utente senza password
 │   ├── AuthTokenService.java        # Token opachi registrazione/reset password
 │   └── SystemMetricsService.java    # Metriche host da procfs Linux (fallback MXBean)
@@ -96,6 +99,7 @@ src/main/java/it/javaWS/
 │   ├── UserGroupRepository.java
 │   ├── BillRepository.java
 │   ├── PaymentRepository.java
+│   ├── ShoppingItemRepository.java
 │   ├── AuthTokenRepository.java
 │   └── TransactionRepository.java
 ├── models/
@@ -107,6 +111,7 @@ src/main/java/it/javaWS/
 │   │   ├── Friendship.java
 │   │   ├── Bill.java
 │   │   ├── Payment.java
+│   │   ├── ShoppingItem.java
 │   │   ├── AuthToken.java
 │   │   └── Transaction.java
 │   ├── dto/                         # Data Transfer Objects
@@ -115,6 +120,7 @@ src/main/java/it/javaWS/
 │   │   ├── GroupMemberDTO.java
 │   │   ├── BillDTO.java
 │   │   ├── PaymentDTO.java
+│   │   ├── ShoppingItemDTO.java
 │   │   ├── TransactionDTO.java
 │   │   ├── UserBalanceDTO.java
 │   │   ├── SettlementDTO.java
@@ -148,6 +154,7 @@ src/test/java/it/javaWS/
 ├── JavawsApplicationTests.java
 ├── services/                        # Test di unità con Mockito
 │   ├── BillServiceTest.java
+│   ├── ShoppingItemServiceTest.java
 │   ├── PaymentServiceTest.java
 │   ├── GroupServiceTest.java
 │   ├── GroupServiceLazyInitTest.java # Regressione: proxy lazy usati fuori dalla sessione (non @Transactional)
@@ -158,6 +165,7 @@ src/test/java/it/javaWS/
 │   ├── AuthControllerTest.java
 │   ├── UserControllerTest.java
 │   ├── BillControllerTest.java
+│   ├── ShoppingItemControllerTest.java
 │   ├── PaymentControllerTest.java
 │   ├── GroupControllerTest.java
 │   ├── SystemStatusControllerTest.java

@@ -17,6 +17,7 @@ import lombok.Data;
 	"groupId",
 	"amount",
 	"buyer",
+	"purchasedItems",
 	"transactions"
 })
 @Data
@@ -30,6 +31,7 @@ public class BillDTO {
 	private String notes;
 	private UserDTO buyer;
 	private Long groupId;
+	private String purchasedItems;
 	private Set<TransactionDTO> transactions;
 
 	public BillDTO(Bill bill) {
@@ -38,6 +40,7 @@ public class BillDTO {
 		this.amount = bill.getAmount();
 		this.notes = bill.getNotes();
 		this.creationDate = bill.getDate();
+		this.purchasedItems = bill.getPurchasedItems();
 
 		this.buyer = new UserDTO(bill.getBuyer());
 		// Spese personali (tra amici) non hanno gruppo.

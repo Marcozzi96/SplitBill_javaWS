@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -33,7 +34,12 @@ public class Bill {
     private LocalDate date;
     private BigDecimal amount;
     private String notes;
-    
+
+    // Snapshot testuale degli articoli della lista spesa acquistati con questa
+    // spesa (valorizzato solo se creata con shoppingItemIds). TEXT perché la
+    // concatenazione di molti articoli può superare i 255 caratteri.
+    @Column(columnDefinition = "TEXT")
+    private String purchasedItems;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "buyer_id")

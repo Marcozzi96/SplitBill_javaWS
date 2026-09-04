@@ -42,6 +42,9 @@ public class Group {
 
     @OneToMany(mappedBy = "group")
     private List<Transaction> transactions;
+
+    @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ShoppingItem> shoppingItems;
     
     public Set<User> getUsers(){
     	return userGroups.stream().map(ug->ug.getUser()).collect(Collectors.toSet());
