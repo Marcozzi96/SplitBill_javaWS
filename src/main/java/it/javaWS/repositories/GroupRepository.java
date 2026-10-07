@@ -22,7 +22,13 @@ public interface GroupRepository extends JpaRepository<Group, Long> {
     @Query("SELECT g FROM Group g JOIN g.userGroups ug WHERE ug.user.id = :userId AND ug.dataUscita IS NULL")
     List<Group> getGroupsByUserId(Long userId);
 
-    // 3. Trova i gruppi in base all'id dell'utente con paginazione (solo membership attive)
-    @Query("SELECT g FROM Group g JOIN g.userGroups ug WHERE ug.user.id = :userId AND ug.dataUscita IS NULL")
+    // 3. Trova i gruppi in base all'id dell'utente con paginazione (solo membership attive).
+    // Ordinamento: per ultima attività del gruppo, cioè il massimo tra la data di creazione
+    // del gruppo e la data dell'ultima spesa — così un gruppo appena creato compete con i
+    // gruppi che hanno spese recenti. A parità di data vince il gruppo con id più alto
+    // (creato dopo). Le spese personali (group null) non contano: non appartengono a un gruppo.
+    @Query("SELECT g FROM Group g JOIN g.userGroups ug WHERE ug.user.id = :userId AND ug.dataUscita IS NULL "
+            + "ORDER BY GREATEST(g.creationDate, COALESCE((SELECT MAX(b.date) FROM Bill b WHERE b.group = g), g.creationDate)) DESC, "
+            + "g.id DESC")
     Page<Group> getGroupsByUserId(Long userId, Pageable pageable);
 }

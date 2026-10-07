@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 import static org.hamcrest.Matchers.hasItem;
 
@@ -361,6 +362,38 @@ class GroupControllerTest {
     }
 
     @Test
+    void getGroupsByUser_orderedByLastActivity() throws Exception {
+        User member = createUser("member", "member@example.com");
+        User debtor = createUser("debtor", "debtor@example.com");
+
+        // A: creato 10 giorni fa, ultima spesa 2 giorni fa -> attività 2 giorni fa
+        Group gruppoA = createGroup("A", LocalDate.now().minusDays(10));
+        // B: creato 5 giorni fa, nessuna spesa -> attività 5 giorni fa
+        Group gruppoB = createGroup("B", LocalDate.now().minusDays(5));
+        // C: creato ieri, nessuna spesa -> attività ieri (deve competere con le spese)
+        Group gruppoC = createGroup("C", LocalDate.now().minusDays(1));
+        for (Group g : List.of(gruppoA, gruppoB, gruppoC)) {
+            addMember(g, member, GroupRole.MEMBER);
+            addMember(g, debtor, GroupRole.MEMBER);
+        }
+
+        Bill billA = createBill(gruppoA, member, debtor, new BigDecimal("10"));
+        billA.setDate(LocalDate.now().minusDays(2));
+        billRepository.save(billA);
+        Bill billB = createBill(gruppoB, member, debtor, new BigDecimal("20"));
+        billB.setDate(LocalDate.now().minusDays(9)); // spesa vecchia: non supera la creazione
+        billRepository.save(billB);
+
+        // Atteso: C (creato ieri), A (spesa 2 giorni fa), B (creato 5 giorni fa)
+        mockMvc.perform(get("/groups")
+                        .with(user(member)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].groupId").value(gruppoC.getId()))
+                .andExpect(jsonPath("$.content[1].groupId").value(gruppoA.getId()))
+                .andExpect(jsonPath("$.content[2].groupId").value(gruppoB.getId()));
+    }
+
+    @Test
     void addUsersToGroup_asMemberWithFriends_returnsOk() throws Exception {
         User member = createUser("member", "member@example.com");
         User friend = createUser("friend", "friend@example.com");
@@ -410,10 +443,14 @@ class GroupControllerTest {
     }
 
     private Group createGroup(String name) {
+        return createGroup(name, LocalDate.now());
+    }
+
+    private Group createGroup(String name, LocalDate creationDate) {
         Group group = new Group();
         group.setName(name);
         group.setDescription("Test group");
-        group.setCreationDate(LocalDate.now());
+        group.setCreationDate(creationDate);
         return groupRepository.save(group);
     }
 
