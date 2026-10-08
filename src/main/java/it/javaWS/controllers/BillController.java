@@ -182,6 +182,19 @@ public class BillController {
 		return ResponseEntity.ok(billService.getBillsByUserId(user.getId(), pageable));
 	}
 
+	@Operation(summary = "Recupera le spese personali con un amico", description = "Restituisce le spese personali (senza gruppo) in cui sono coinvolti sia l'utente autenticato sia l'amico indicato, con paginazione")
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Lista spese restituita"),
+			@ApiResponse(responseCode = "400", description = "friendId mancante") })
+	@GetMapping("/getMyPersonalBills")
+	public ResponseEntity<Page<BillDTO>> getPersonalBillsByFriend(@AuthenticationPrincipal User user,
+			@RequestParam Long friendId,
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "20") int size) {
+		Pageable pageable = PageRequest.of(page, size);
+		return ResponseEntity.ok(billService.getPersonalBillsBetweenUsers(user.getId(), friendId, pageable));
+	}
+
 	@Operation(summary = "Modifica una spesa", description = "Consente la modifica a qualsiasi membro attivo del gruppo; per le spese personali a chiunque sia coinvolto (buyer o debitore). Con buyerId si può cambiare chi ha pagato.")
 	@ApiResponses(value = {
 			@ApiResponse(responseCode = "200", description = "Spesa modificata"),

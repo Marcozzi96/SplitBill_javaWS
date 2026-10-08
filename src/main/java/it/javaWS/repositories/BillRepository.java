@@ -27,4 +27,14 @@ public interface BillRepository extends JpaRepository<Bill, Long> {
 	@Query("SELECT b FROM Bill b WHERE EXISTS (SELECT 1 FROM Transaction t WHERE t.bill = b AND t.user.id = :userId) ORDER BY b.date DESC, b.id DESC")
 	Page<Bill> findBillsByUserIdThroughTransactions(@Param("userId") Long userId, Pageable pageable);
 
+	@Query("""
+			SELECT b FROM Bill b
+			WHERE b.group IS NULL
+			  AND (EXISTS (SELECT 1 FROM Transaction t WHERE t.bill = b AND t.user.id = :userId) OR b.buyer.id = :userId)
+			  AND (EXISTS (SELECT 1 FROM Transaction t WHERE t.bill = b AND t.user.id = :friendId) OR b.buyer.id = :friendId)
+			ORDER BY b.date DESC, b.id DESC
+			""")
+	Page<Bill> findPersonalBillsBetweenUsers(@Param("userId") Long userId, @Param("friendId") Long friendId,
+			Pageable pageable);
+
 }

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
@@ -16,7 +17,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
+import it.javaWS.models.dto.BillDTO;
 import it.javaWS.models.entities.Bill;
 import it.javaWS.models.entities.Group;
 import it.javaWS.models.entities.ShoppingItem;
@@ -203,6 +209,36 @@ class BillServiceTest {
         Bill bill = billService.createBill("Cena", new BigDecimal("100"), "note", buyer, group, debits, null);
 
         assertThat(bill.getPurchasedItems()).isNull();
+    }
+
+    @Test
+    void getPersonalBillsBetweenUsers_callsRepositoryAndPreservesTotals() {
+        User me = createUser(1L);
+        User friend = createUser(2L);
+        Pageable pageable = PageRequest.of(0, 20);
+
+        Bill bill = new Bill();
+        bill.setId(10L);
+        bill.setDescription("Pizza");
+        bill.setAmount(new BigDecimal("100"));
+        bill.setDate(LocalDate.now());
+        bill.setNotes("");
+        bill.setBuyer(me);
+        bill.setGroup(null);
+        bill.setTransactions(List.of());
+
+        Page<Bill> repositoryPage = new PageImpl<>(List.of(bill), pageable, 42L);
+        when(billRepository.findPersonalBillsBetweenUsers(me.getId(), friend.getId(), pageable))
+                .thenReturn(repositoryPage);
+        when(transactionRepository.findByBill_Id(bill.getId())).thenReturn(List.of());
+
+        Page<BillDTO> result = billService.getPersonalBillsBetweenUsers(me.getId(), friend.getId(), pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getDescription()).isEqualTo("Pizza");
+        assertThat(result.getTotalElements()).isEqualTo(42L);
+        assertThat(result.getTotalPages()).isEqualTo(3);
+        verify(billRepository).findPersonalBillsBetweenUsers(me.getId(), friend.getId(), pageable);
     }
 
     private ShoppingItem createShoppingItem(Long id, String name, String note, Group group) {

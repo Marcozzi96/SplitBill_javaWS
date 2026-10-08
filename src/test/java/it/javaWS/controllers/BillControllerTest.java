@@ -381,6 +381,49 @@ class BillControllerTest {
     }
 
     @Test
+    void getMyPersonalBills_returnsOnlyPersonalBillsWithFriend() throws Exception {
+        User me = createUser("me", "me@example.com");
+        User friend = createUser("friend", "friend@example.com");
+        User other = createUser("other", "other@example.com");
+        makeFriends(me, friend);
+
+        // Spese personali me ↔ amico: devono essere restituite.
+        createBill(null, me, friend, new BigDecimal("10"));
+        createBill(null, me, friend, new BigDecimal("20"));
+
+        // Spesa personale me ↔ altro: NON deve comparire.
+        createBill(null, me, other, new BigDecimal("30"));
+
+        // Spesa di gruppo con me e amico: NON deve comparire.
+        Group group = createGroup("Trip");
+        addMember(group, me, GroupRole.MEMBER);
+        addMember(group, friend, GroupRole.MEMBER);
+        createBill(group, me, friend, new BigDecimal("40"));
+
+        mockMvc.perform(get("/bills/getMyPersonalBills")
+                        .with(user(me))
+                        .param("friendId", friend.getId().toString())
+                        .param("page", "0")
+                        .param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.totalPages").value(1));
+    }
+
+    @Test
+    void getMyPersonalBills_missingFriendId_returnsBadRequest() throws Exception {
+        User me = createUser("me", "me@example.com");
+
+        mockMvc.perform(get("/bills/getMyPersonalBills")
+                        .with(user(me))
+                        .param("page", "0")
+                        .param("size", "10"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void createBill_withoutGroupId_personalBillBetweenFriends_returnsOk() throws Exception {
         User buyer = createUser("buyer", "buyer@example.com");
         User friend = createUser("friend", "friend@example.com");

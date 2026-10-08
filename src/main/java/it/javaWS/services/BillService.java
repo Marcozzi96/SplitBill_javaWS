@@ -184,6 +184,15 @@ public class BillService {
     }
 
     @Transactional(readOnly = true)
+    public Page<BillDTO> getPersonalBillsBetweenUsers(Long userId, Long friendId, Pageable pageable) {
+        Page<Bill> bills = billRepository.findPersonalBillsBetweenUsers(userId, friendId, pageable);
+        List<BillDTO> dtos = bills.getContent().stream()
+                .map(this::toBillDto)
+                .toList();
+        return new PageImpl<>(dtos, pageable, bills.getTotalElements());
+    }
+
+    @Transactional(readOnly = true)
     public Bill getBill(Long id) {
         return billRepository.findById(id)
                 .orElseThrow(() -> new BillNotFoundException("Spesa non trovata"));
