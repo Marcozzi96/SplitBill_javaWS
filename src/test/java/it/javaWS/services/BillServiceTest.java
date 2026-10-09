@@ -212,6 +212,74 @@ class BillServiceTest {
     }
 
     @Test
+    void createBill_personalBill_tooManyParticipants_throwsInvalidBillException() {
+        User buyer = createUser(1L);
+        User friend = createUser(2L);
+        User other = createUser(3L);
+
+        Map<User, BigDecimal> debits = Map.of(
+                buyer, new BigDecimal("40"),
+                friend, new BigDecimal("30"),
+                other, new BigDecimal("30"));
+
+        InvalidBillException exception = assertThrows(InvalidBillException.class,
+                () -> billService.createBill("Cena", new BigDecimal("100"), "note", buyer, null, debits, List.of()));
+        assertThat(exception.getMessage()).contains("2 partecipanti");
+    }
+
+    @Test
+    void createBill_personalBill_onlyBuyerInSplit_throwsInvalidBillException() {
+        User buyer = createUser(1L);
+        User friend = createUser(2L);
+
+        // Manca l'altro partecipante: solo il buyer compare nella ripartizione.
+        Map<User, BigDecimal> debits = Map.of(buyer, new BigDecimal("100"));
+
+        InvalidBillException exception = assertThrows(InvalidBillException.class,
+                () -> billService.createBill("Cena", new BigDecimal("100"), "note", buyer, null, debits, List.of()));
+        assertThat(exception.getMessage()).contains("2 partecipanti");
+    }
+
+    @Test
+    void createBill_personalBill_buyerOmittedWithZeroShare_success() {
+        mockRepositories();
+
+        User buyer = createUser(1L);
+        User friend = createUser(2L);
+
+        // Il frontend reale omette il buyer quando ha quota 0.
+        Map<User, BigDecimal> debits = Map.of(friend, new BigDecimal("100"));
+
+        Bill bill = billService.createBill("Cena", new BigDecimal("100"), "note", buyer, null, debits, List.of());
+
+        assertThat(bill.getTransactions()).hasSize(2);
+        assertThat(bill.getTransactions())
+                .anyMatch(t -> t.getUser().getId().equals(1L) && t.getAmount().compareTo(new BigDecimal("100")) == 0)
+                .anyMatch(t -> t.getUser().getId().equals(2L) && t.getAmount().compareTo(new BigDecimal("-100")) == 0);
+        verify(balanceService).applyBill(bill);
+    }
+
+    @Test
+    void createBill_personalBill_validTwoParticipants_success() {
+        mockRepositories();
+
+        User buyer = createUser(1L);
+        User friend = createUser(2L);
+
+        Map<User, BigDecimal> debits = Map.of(
+                buyer, new BigDecimal("30"),
+                friend, new BigDecimal("70"));
+
+        Bill bill = billService.createBill("Cena", new BigDecimal("100"), "note", buyer, null, debits, List.of());
+
+        assertThat(bill.getTransactions()).hasSize(2);
+        assertThat(bill.getTransactions())
+                .anyMatch(t -> t.getUser().getId().equals(1L) && t.getAmount().compareTo(new BigDecimal("70")) == 0)
+                .anyMatch(t -> t.getUser().getId().equals(2L) && t.getAmount().compareTo(new BigDecimal("-70")) == 0);
+        verify(balanceService).applyBill(bill);
+    }
+
+    @Test
     void getPersonalBillsBetweenUsers_callsRepositoryAndPreservesTotals() {
         User me = createUser(1L);
         User friend = createUser(2L);

@@ -60,7 +60,7 @@ public class BillController {
 		this.shoppingItemService = shoppingItemService;
 	}
 
-	@Operation(summary = "Crea una nuova spesa", description = "Crea una spesa con suddivisione personalizzata dei debiti. La somma dei debiti deve essere esattamente uguale all'importo totale. Senza groupId la spesa è personale (tra amici): i debitori devono essere amici del buyer. Con buyerId si indica chi ha pagato (default: utente autenticato).")
+	@Operation(summary = "Crea una nuova spesa", description = "Crea una spesa con suddivisione personalizzata dei debiti. La somma dei debiti deve essere esattamente uguale all'importo totale. Senza groupId la spesa è personale (tra amici): il buyer più i debitori nella ripartizione devono coinvolgere esattamente 2 partecipanti distinti (l'utente autenticato e un solo amico); i debitori diversi dal buyer devono essere amici del buyer. Con buyerId si indica chi ha pagato (default: utente autenticato).")
 	@ApiResponses(value = {
 			@ApiResponse(responseCode = "200", description = "Spesa creata con successo"),
 			@ApiResponse(responseCode = "400", description = "Dati non validi (importo negativo o somma debiti diversa dall'importo)"),
@@ -195,7 +195,7 @@ public class BillController {
 		return ResponseEntity.ok(billService.getPersonalBillsBetweenUsers(user.getId(), friendId, pageable));
 	}
 
-	@Operation(summary = "Modifica una spesa", description = "Consente la modifica a qualsiasi membro attivo del gruppo; per le spese personali a chiunque sia coinvolto (buyer o debitore). Con buyerId si può cambiare chi ha pagato.")
+	@Operation(summary = "Modifica una spesa", description = "Consente la modifica a qualsiasi membro attivo del gruppo; per le spese personali a chiunque sia coinvolto (buyer o debitore). Le spese personali devono mantenere esattamente 2 partecipanti distinti (buyer + debitori nella ripartizione). Con buyerId si può cambiare chi ha pagato.")
 	@ApiResponses(value = {
 			@ApiResponse(responseCode = "200", description = "Spesa modificata"),
 			@ApiResponse(responseCode = "400", description = "Dati non validi"),

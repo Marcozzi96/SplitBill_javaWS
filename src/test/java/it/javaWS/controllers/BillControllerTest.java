@@ -549,6 +549,50 @@ class BillControllerTest {
     }
 
     @Test
+    void updateBill_personalBill_threeParticipants_returnsBadRequest() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User friend = createUser("friend", "friend@example.com");
+        User other = createUser("other", "other@example.com");
+        makeFriends(buyer, friend);
+        makeFriends(buyer, other);
+        Bill bill = createBill(null, buyer, friend, new BigDecimal("100"));
+
+        Map<Long, BigDecimal> debits = Map.of(
+                buyer.getId(), new BigDecimal("30"),
+                friend.getId(), new BigDecimal("30"),
+                other.getId(), new BigDecimal("40"));
+
+        mockMvc.perform(put("/bills/{id}", bill.getId())
+                        .with(user(buyer))
+                        .param("description", "Hacked")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateBill_personalBill_onlyBuyerInSplit_returnsBadRequest() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User friend = createUser("friend", "friend@example.com");
+        makeFriends(buyer, friend);
+        Bill bill = createBill(null, buyer, friend, new BigDecimal("100"));
+
+        // In modifica manca l'altro partecipante: solo il buyer resta nella ripartizione.
+        Map<Long, BigDecimal> debits = Map.of(buyer.getId(), new BigDecimal("100"));
+
+        mockMvc.perform(put("/bills/{id}", bill.getId())
+                        .with(user(buyer))
+                        .param("description", "Hacked")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void deleteBill_personalBill_asDebtor_returnsOk() throws Exception {
         User buyer = createUser("buyer", "buyer@example.com");
         User friend = createUser("friend", "friend@example.com");
@@ -638,7 +682,8 @@ class BillControllerTest {
         User friend = createUser("friend", "friend@example.com");
         makeFriends(me, friend);
 
-        // Ha pagato l'amico: io sono l'unico debitore.
+        // Ha pagato l'amico: il FE reale omette il buyer con quota 0, inviando solo
+        // il debitore. Il backend conta il buyer come partecipante implicito.
         Map<Long, BigDecimal> debits = Map.of(me.getId(), new BigDecimal("100"));
 
         mockMvc.perform(post("/bills/new")
@@ -652,6 +697,48 @@ class BillControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.buyer.userId").value(friend.getId()))
                 .andExpect(jsonPath("$.groupId").value(org.hamcrest.Matchers.nullValue()));
+    }
+
+    @Test
+    void createBill_personalBill_threeParticipants_returnsBadRequest() throws Exception {
+        User me = createUser("me", "me@example.com");
+        User friend = createUser("friend", "friend@example.com");
+        User other = createUser("other", "other@example.com");
+        makeFriends(me, friend);
+        makeFriends(me, other);
+
+        Map<Long, BigDecimal> debits = Map.of(
+                me.getId(), new BigDecimal("40"),
+                friend.getId(), new BigDecimal("30"),
+                other.getId(), new BigDecimal("30"));
+
+        mockMvc.perform(post("/bills/new")
+                        .with(user(me))
+                        .param("description", "Cena")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createBill_personalBill_onlyBuyerInSplit_returnsBadRequest() throws Exception {
+        User me = createUser("me", "me@example.com");
+        User friend = createUser("friend", "friend@example.com");
+        makeFriends(me, friend);
+
+        // Manca l'altro partecipante: solo il buyer compare nella ripartizione.
+        Map<Long, BigDecimal> debits = Map.of(me.getId(), new BigDecimal("100"));
+
+        mockMvc.perform(post("/bills/new")
+                        .with(user(me))
+                        .param("description", "Regalo")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

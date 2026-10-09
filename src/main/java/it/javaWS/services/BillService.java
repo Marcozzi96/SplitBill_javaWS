@@ -3,6 +3,7 @@ package it.javaWS.services;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -72,6 +73,18 @@ public class BillService {
         if (amount.compareTo(totalDebit) != 0) {
             throw new InvalidBillException("La somma dei debiti (" + totalDebit
                     + ") non corrisponde all'importo totale (" + amount + ")");
+        }
+
+        if (group == null) {
+            // Una spesa personale (tra amici) deve coinvolgere esattamente 2 partecipanti
+            // distinti: il buyer è sempre un partecipante e i debiti indicano l'altro.
+            // Il frontend può omettere dal body le quote a 0, quindi non si impone
+            // usersDebit.size() == 2 né che il buyer compaia esplicitamente nella mappa.
+            Set<User> participants = new HashSet<>(usersDebit.keySet());
+            participants.add(buyer);
+            if (participants.size() != 2) {
+                throw new InvalidBillException("Una spesa personale deve coinvolgere esattamente 2 partecipanti");
+            }
         }
 
         Bill bill = new Bill();
@@ -260,6 +273,14 @@ public class BillService {
                     .orElseThrow(() -> new InvalidBillException("Buyer non trovato"));
         }
         final Long effectiveBuyerId = buyer.getId();
+
+        if (group == null) {
+            Set<Long> participantIds = new HashSet<>(usersDebit.keySet());
+            participantIds.add(effectiveBuyerId);
+            if (participantIds.size() != 2) {
+                throw new InvalidBillException("Una spesa personale deve coinvolgere esattamente 2 partecipanti");
+            }
+        }
 
         Set<Long> debtorIds = usersDebit.keySet();
         List<User> debtors;
