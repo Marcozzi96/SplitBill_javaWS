@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +36,8 @@ import jakarta.persistence.EntityNotFoundException;
 
 @Service
 public class BalanceService {
+
+    private static final Logger log = LoggerFactory.getLogger(BalanceService.class);
 
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
@@ -422,8 +426,13 @@ public class BalanceService {
         if (inverse.isPresent()) {
             inverse.get().setAmount(inverse.get().getAmount().add(amount));
         } else {
-            throw new IllegalStateException("Pairwise settlement da revert non trovato per debtor=" + debtor.getId()
-                    + ", creditor=" + creditor.getId() + ", group=" + (group != null ? group.getId() : "null"));
+            // Il settlement può legittimamente mancare: se la spesa ha compensato
+            // esattamente un debito inverso, addPairwiseDebt ha cancellato il record
+            // (netto zero). Lo storno equivale quindi a ripristinare il debito della
+            // controparte, creando il settlement inverso.
+            log.warn("Pairwise settlement da revert non trovato per debtor={}, creditor={}, group={}: creato il settlement inverso",
+                    debtor.getId(), creditor.getId(), group != null ? group.getId() : "null");
+            addPairwiseDebt(creditor, debtor, group, amount);
         }
     }
 

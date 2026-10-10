@@ -440,6 +440,63 @@ class BalanceServiceTest {
         assertThat(captor.getValue().getAmount()).isEqualByComparingTo("20");
     }
 
+    @Test
+    void revertBill_missingSettlement_createsInverseInsteadOfThrowing() {
+        User buyer = createUser(1L, "alice");
+        User bob = createUser(2L, "bob");
+        Group group = createGroup(10L);
+        Bill bill = createBill(100L, buyer, group, new BigDecimal("40"));
+        Transaction buyerTransaction = createTransaction(1L, buyer, bill, group, new BigDecimal("40"));
+        Transaction bobTransaction = createTransaction(2L, bob, bill, group, new BigDecimal("-40"));
+        bill.setTransactions(List.of(buyerTransaction, bobTransaction));
+
+        UserBalance buyerBalance = new UserBalance();
+        buyerBalance.setUser(buyer);
+        buyerBalance.setTotalPaid(new BigDecimal("40"));
+        buyerBalance.setTotalOwed(BigDecimal.ZERO);
+        buyerBalance.setNetBalance(new BigDecimal("40"));
+        UserGroupBalance buyerGroupBalance = new UserGroupBalance();
+        buyerGroupBalance.setUser(buyer);
+        buyerGroupBalance.setGroup(group);
+        buyerGroupBalance.setTotalPaid(new BigDecimal("40"));
+        buyerGroupBalance.setTotalOwed(BigDecimal.ZERO);
+        buyerGroupBalance.setNetBalance(new BigDecimal("40"));
+
+        UserBalance bobBalance = new UserBalance();
+        bobBalance.setUser(bob);
+        bobBalance.setTotalPaid(BigDecimal.ZERO);
+        bobBalance.setTotalOwed(new BigDecimal("40"));
+        bobBalance.setNetBalance(new BigDecimal("-40"));
+        UserGroupBalance bobGroupBalance = new UserGroupBalance();
+        bobGroupBalance.setUser(bob);
+        bobGroupBalance.setGroup(group);
+        bobGroupBalance.setTotalPaid(BigDecimal.ZERO);
+        bobGroupBalance.setTotalOwed(new BigDecimal("40"));
+        bobGroupBalance.setNetBalance(new BigDecimal("-40"));
+
+        // Nessun settlement per la coppia in nessuna direzione: è lo stato che resta
+        // quando la spesa ha compensato esattamente un debito inverso (netting a zero).
+        when(transactionRepository.findByBill_Id(100L)).thenReturn(bill.getTransactions());
+        when(userBalanceRepository.findByUserId(1L)).thenReturn(Optional.of(buyerBalance));
+        when(userBalanceRepository.findByUserId(2L)).thenReturn(Optional.of(bobBalance));
+        when(userGroupBalanceRepository.findByUserIdAndGroupId(1L, 10L)).thenReturn(Optional.of(buyerGroupBalance));
+        when(userGroupBalanceRepository.findByUserIdAndGroupId(2L, 10L)).thenReturn(Optional.of(bobGroupBalance));
+        when(pairwiseSettlementRepository.findByDebtorIdAndCreditorIdAndGroupId(any(), any(), any()))
+                .thenReturn(Optional.empty());
+
+        balanceService.revertBill(bill);
+
+        // Lo storno di un debito assente equivale a un credito della controparte:
+        // viene creato il settlement inverso (buyer debitore di bob) invece di lanciare.
+        ArgumentCaptor<PairwiseSettlement> captor = ArgumentCaptor.forClass(PairwiseSettlement.class);
+        verify(pairwiseSettlementRepository).save(captor.capture());
+        PairwiseSettlement saved = captor.getValue();
+        assertThat(saved.getDebtor().getId()).isEqualTo(1L);
+        assertThat(saved.getCreditor().getId()).isEqualTo(2L);
+        assertThat(saved.getGroup()).isEqualTo(group);
+        assertThat(saved.getAmount()).isEqualByComparingTo("40");
+    }
+
     private User createUser(Long id, String username) {
         User user = new User();
         user.setId(id);
