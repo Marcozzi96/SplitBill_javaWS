@@ -42,6 +42,10 @@ public class ShoppingItem {
     private boolean toBuy = true;
 
     @Column(nullable = false)
+    @ColumnDefault("0")
+    private double position = 0.0;
+
+    @Column(nullable = false)
     private LocalDateTime createdAt;
 
     @ManyToOne(fetch = FetchType.LAZY)

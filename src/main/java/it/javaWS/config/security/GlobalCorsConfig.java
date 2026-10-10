@@ -39,7 +39,7 @@ public class GlobalCorsConfig {
         configuration.setAllowedOriginPatterns(List.of(
                 "http://localhost:*", "http://127.0.0.1:*",
                 "http://192.168.*:*", "http://10.*:*", "http://172.*:*"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true); // opzionale, utile se usi cookie o autenticazione
 

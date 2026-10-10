@@ -5,11 +5,15 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import java.util.List;
+
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,7 +22,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import it.javaWS.models.dto.ReorderShoppingItemRequest;
 import it.javaWS.models.dto.ShoppingItemDTO;
+import it.javaWS.models.dto.ShoppingItemPositionDTO;
 import it.javaWS.models.entities.User;
 import it.javaWS.services.ShoppingItemService;
 
@@ -73,6 +79,21 @@ public class ShoppingItemController {
 			@PathVariable Long id,
 			@RequestParam boolean toBuy) {
 		return ResponseEntity.ok(shoppingItemService.updateToBuyDto(id, user.getId(), toBuy));
+	}
+
+	@Operation(summary = "Riordina un articolo", description = "Sposta un articolo da acquistare tra due vicini dello stesso gruppo. prevItemId/nextItemId null indicano rispettivamente cima e fondo del blocco da acquistare. Restituisce la mappa aggiornata id→position di tutto il gruppo.")
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Ordinamento aggiornato"),
+			@ApiResponse(responseCode = "400", description = "Dati non validi: articolo già acquistato o vicini non validi"),
+			@ApiResponse(responseCode = "401", description = "Accesso non autorizzato"),
+			@ApiResponse(responseCode = "403", description = "L'utente non fa parte del gruppo"),
+			@ApiResponse(responseCode = "404", description = "Articolo non trovato") })
+	@PatchMapping("/{itemId}/position")
+	public ResponseEntity<List<ShoppingItemPositionDTO>> reorderItem(@AuthenticationPrincipal User user,
+			@PathVariable Long itemId,
+			@RequestBody ReorderShoppingItemRequest request) {
+		return ResponseEntity.ok(shoppingItemService.reorderItem(itemId, user.getId(), request.getPrevItemId(),
+				request.getNextItemId()));
 	}
 
 	@Operation(summary = "Elimina un articolo", description = "Rimuove un articolo dalla lista della spesa del gruppo")

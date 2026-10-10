@@ -26,7 +26,7 @@ Funzionalità principali:
   - Bilanci e settlement pairwise supportano `group_id` null (spese personali e uscite da gruppo).
   - Gli utenti eliminati (`deleted=true`) non possono partecipare a **nuove** spese, né come buyer né come debitori (`POST /bills/new`); in modifica (`PUT /bills/{id}`) restano ammessi solo se già coinvolti nella spesa esistente — un eliminato mai presente prima, o scelto come nuovo buyer, viene rifiutato con 400.
 - Rimborsi tra utenti: `POST /payments` (l'importo non può superare il debito effettivo) e `GET /payments` (cronologia paginata).
-- Lista della spesa di gruppo (`/shopping-items`): CRUD riservato ai membri attivi (`GET /shopping-items/group/{groupId}` paginata con filtro `toBuy` opzionale, ordinata `toBuy DESC, id ASC`; `POST /shopping-items/new` rifiuta duplicati case-insensitive; `PUT /shopping-items/{id}?toBuy=` toggle; `DELETE /shopping-items/{id}`). In `POST /bills/new` il parametro opzionale `shoppingItemIds` marca gli articoli come acquistati e salva sulla spesa lo snapshot testuale `purchasedItems` (esposto in `BillDTO`); update/delete della spesa non retroagiscono sulla lista.
+- Lista della spesa di gruppo (`/shopping-items`): CRUD riservato ai membri attivi. Ogni articolo ha una `position` (`double`, valore più alto = più in alto); la lista è ordinata `toBuy DESC, position DESC, id ASC`. `GET /shopping-items/group/{groupId}` paginata con filtro `toBuy` opzionale; `POST /shopping-items/new` assegna automaticamente `position = max(toBuy=true del gruppo) + 1` (gruppo vuoto: `1000`) e rifiuta duplicati case-insensitive; `PUT /shopping-items/{id}?toBuy=` toggle senza toccare `position`; `PATCH /shopping-items/{itemId}/position` sposta un articolo `toBuy=true` tra due vicini dello stesso gruppo (`{prevItemId, nextItemId}`, `null` = estremo), ricalcolando le posizioni di tutto il gruppo se la distanza tra vicini è < `1e-6`; `DELETE /shopping-items/{id}`. In `POST /bills/new` il parametro opzionale `shoppingItemIds` marca gli articoli come acquistati e salva sulla spesa lo snapshot testuale `purchasedItems` (esposto in `BillDTO`); update/delete della spesa non retroagiscono sulla lista.
 - "Dimentica il debito": `POST /payments/forgive?payerId=<id>[&groupId=<id>]` registra un rimborso fittizio pari al debito residuo di un **utente eliminato** verso il creditore autenticato, azzerandolo (note: "Debito dimenticato (utente eliminato)"). Con `groupId` il creditore deve essere un membro attivo del gruppo; non è richiesta la membership del payer eliminato.
 - Calcolo del saldo netto di un utente.
 - Documentazione API tramite Swagger UI.
@@ -61,6 +61,8 @@ Altre librerie rilevanti:
 ```text
 src/main/java/it/javaWS/
 ├── JavawsApplication.java           # Entry point Spring Boot
+├── components/                      # Runner di startup e componenti trasversali
+│   └── ShoppingItemPositionBackfillRunner.java  # Backfill una-tantum della colonna position
 ├── config/                          # Configurazioni
 │   ├── OpenApiConfig.java           # Swagger/OpenAPI
 │   └── security/
@@ -121,6 +123,8 @@ src/main/java/it/javaWS/
 │   │   ├── BillDTO.java
 │   │   ├── PaymentDTO.java
 │   │   ├── ShoppingItemDTO.java
+│   │   ├── ShoppingItemPositionDTO.java
+│   │   ├── ReorderShoppingItemRequest.java
 │   │   ├── TransactionDTO.java
 │   │   ├── UserBalanceDTO.java
 │   │   ├── SettlementDTO.java

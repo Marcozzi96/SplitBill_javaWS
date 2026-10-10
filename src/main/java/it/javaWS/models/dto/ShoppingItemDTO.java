@@ -13,6 +13,7 @@ import lombok.Data;
 	"name",
 	"note",
 	"toBuy",
+	"position",
 	"createdAt"
 })
 @Data
@@ -23,6 +24,7 @@ public class ShoppingItemDTO {
 	private String name;
 	private String note;
 	private boolean toBuy;
+	private double position;
 	private LocalDateTime createdAt;
 
 	public ShoppingItemDTO(ShoppingItem item) {
@@ -32,6 +34,7 @@ public class ShoppingItemDTO {
 		this.name = item.getName();
 		this.note = item.getNote();
 		this.toBuy = item.isToBuy();
+		this.position = item.getPosition();
 		this.createdAt = item.getCreatedAt();
 	}
 }
