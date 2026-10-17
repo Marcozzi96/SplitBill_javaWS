@@ -17,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.AccessDeniedException;
 
 import it.javaWS.models.dto.PaymentDTO;
 import it.javaWS.models.entities.Group;
@@ -128,10 +129,65 @@ class PaymentServiceTest {
         when(paymentRepository.findByPayerIdOrPayeeIdOrderByDateDescIdDesc(1L, 1L, PageRequest.of(0, 20)))
                 .thenReturn(new PageImpl<>(java.util.List.of(payment)));
 
-        Page<PaymentDTO> page = paymentService.getPaymentsForUser(1L, PageRequest.of(0, 20));
+        Page<PaymentDTO> page = paymentService.getPaymentsForUser(1L, null, null, PageRequest.of(0, 20));
 
         assertThat(page.getContent()).hasSize(1);
         assertThat(page.getContent().getFirst().getPaymentId()).isEqualTo(1L);
+    }
+
+    @Test
+    void getPaymentsForUser_withFriendId_returnsPersonalPayments() {
+        User payer = createUser(1L);
+        User payee = createUser(2L);
+        Payment payment = new Payment();
+        payment.setId(2L);
+        payment.setPayer(payee);
+        payment.setPayee(payer);
+        payment.setAmount(new BigDecimal("15"));
+
+        when(paymentRepository.findPersonalPaymentsBetweenUsers(1L, 2L, PageRequest.of(0, 20)))
+                .thenReturn(new PageImpl<>(java.util.List.of(payment)));
+
+        Page<PaymentDTO> page = paymentService.getPaymentsForUser(1L, 2L, null, PageRequest.of(0, 20));
+
+        assertThat(page.getContent()).hasSize(1);
+        assertThat(page.getContent().getFirst().getPaymentId()).isEqualTo(2L);
+    }
+
+    @Test
+    void getPaymentsForUser_withGroupId_member_returnsGroupPayments() {
+        User payer = createUser(1L);
+        User payee = createUser(2L);
+        Group group = createGroup(10L);
+        Payment payment = new Payment();
+        payment.setId(3L);
+        payment.setPayer(payer);
+        payment.setPayee(payee);
+        payment.setGroup(group);
+        payment.setAmount(new BigDecimal("20"));
+
+        when(groupService.existsByGroupIdAndUserId(10L, 1L)).thenReturn(true);
+        when(paymentRepository.findByGroupIdOrderByDateDescIdDesc(10L, PageRequest.of(0, 20)))
+                .thenReturn(new PageImpl<>(java.util.List.of(payment)));
+
+        Page<PaymentDTO> page = paymentService.getPaymentsForUser(1L, null, 10L, PageRequest.of(0, 20));
+
+        assertThat(page.getContent()).hasSize(1);
+        assertThat(page.getContent().getFirst().getGroupId()).isEqualTo(10L);
+    }
+
+    @Test
+    void getPaymentsForUser_withGroupId_notMember_throwsAccessDenied() {
+        when(groupService.existsByGroupIdAndUserId(10L, 1L)).thenReturn(false);
+
+        assertThatThrownBy(() -> paymentService.getPaymentsForUser(1L, null, 10L, PageRequest.of(0, 20)))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void getPaymentsForUser_withBothFilters_throwsInvalidPayment() {
+        assertThatThrownBy(() -> paymentService.getPaymentsForUser(1L, 2L, 10L, PageRequest.of(0, 20)))
+                .isInstanceOf(InvalidPaymentException.class);
     }
 
     private User createUser(Long id) {

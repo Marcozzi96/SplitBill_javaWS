@@ -60,13 +60,23 @@ public class PaymentController {
         return ResponseEntity.ok(paymentService.forgiveDebt(user.getId(), payerId, groupId));
     }
 
-    @Operation(summary = "Recupera i propri rimborsi", description = "Restituisce la cronologia dei rimborsi in cui l'utente è coinvolto, con paginazione")
-    @ApiResponse(responseCode = "200", description = "Cronologia rimborsi restituita")
+    @Operation(summary = "Recupera i rimborsi", description = "Restituisce la cronologia dei rimborsi con paginazione. "
+            + "Senza filtri: solo i rimborsi in cui l'utente autenticato è payer o payee. "
+            + "Con friendId: solo i rimborsi personali (senza gruppo) tra l'utente e l'amico indicato, in entrambe le direzioni. "
+            + "Con groupId: tutti i rimborsi del gruppo (riservato ai membri attivi). "
+            + "friendId e groupId non possono essere usati insieme.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Cronologia rimborsi restituita"),
+            @ApiResponse(responseCode = "400", description = "friendId e groupId usati insieme"),
+            @ApiResponse(responseCode = "401", description = "Non autenticato"),
+            @ApiResponse(responseCode = "403", description = "L'utente non è membro attivo del gruppo indicato") })
     @GetMapping
     public ResponseEntity<Page<PaymentDTO>> getPayments(@AuthenticationPrincipal User user,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) Long friendId,
+            @RequestParam(required = false) Long groupId) {
         Pageable pageable = PageRequest.of(page, size);
-        return ResponseEntity.ok(paymentService.getPaymentsForUser(user.getId(), pageable));
+        return ResponseEntity.ok(paymentService.getPaymentsForUser(user.getId(), friendId, groupId, pageable));
     }
 }

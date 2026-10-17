@@ -5,6 +5,7 @@ import java.time.LocalDate;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -121,7 +122,25 @@ public class PaymentService {
     }
 
     @Transactional(readOnly = true)
-    public Page<PaymentDTO> getPaymentsForUser(Long userId, Pageable pageable) {
+    public Page<PaymentDTO> getPaymentsForUser(Long userId, Long friendId, Long groupId, Pageable pageable) {
+        if (friendId != null && groupId != null) {
+            throw new InvalidPaymentException("I filtri friendId e groupId non possono essere usati insieme");
+        }
+        if (groupId != null) {
+            // Cronologia di tutti i rimborsi del gruppo (anche tra altri membri):
+            // riservata ai membri attivi del gruppo.
+            if (!groupService.existsByGroupIdAndUserId(groupId, userId)) {
+                throw new AccessDeniedException("L'utente non fa parte del gruppo richiesto");
+            }
+            return paymentRepository.findByGroupIdOrderByDateDescIdDesc(groupId, pageable)
+                    .map(PaymentDTO::new);
+        }
+        if (friendId != null) {
+            // Solo rimborsi personali (senza gruppo) tra i due utenti; non si richiede
+            // che siano ancora amici né che friendId esista (in tal caso pagina vuota).
+            return paymentRepository.findPersonalPaymentsBetweenUsers(userId, friendId, pageable)
+                    .map(PaymentDTO::new);
+        }
         return paymentRepository.findByPayerIdOrPayeeIdOrderByDateDescIdDesc(userId, userId, pageable)
                 .map(PaymentDTO::new);
     }

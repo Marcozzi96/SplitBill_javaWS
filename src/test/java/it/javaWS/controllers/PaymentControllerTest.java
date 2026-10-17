@@ -142,6 +142,123 @@ class PaymentControllerTest {
     }
 
     @Test
+    void getPayments_withFriendId_returnsOnlyPersonalPaymentsInBothDirections() throws Exception {
+        User me = createUser("me", "me@example.com");
+        User friend = createUser("friend", "friend@example.com");
+        User other = createUser("other", "other@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, me, GroupRole.MEMBER);
+        addMember(group, friend, GroupRole.MEMBER);
+
+        createPayment(me, friend, new BigDecimal("10"), null);
+        createPayment(friend, me, new BigDecimal("20"), null);
+        createPayment(me, friend, new BigDecimal("30"), group); // di gruppo: escluso
+        createPayment(me, other, new BigDecimal("40"), null);  // con un terzo: escluso
+
+        mockMvc.perform(get("/payments")
+                        .with(user(me))
+                        .param("friendId", friend.getId().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content[0].amount").value(20))
+                .andExpect(jsonPath("$.content[1].amount").value(10))
+                .andExpect(jsonPath("$.content[0].groupId").doesNotExist());
+    }
+
+    @Test
+    void getPayments_withUnknownFriendId_returnsEmptyPage() throws Exception {
+        User me = createUser("me", "me@example.com");
+
+        mockMvc.perform(get("/payments")
+                        .with(user(me))
+                        .param("friendId", "999999"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    @Test
+    void getPayments_withGroupId_returnsAllGroupPaymentsIncludingOtherMembers() throws Exception {
+        User me = createUser("me", "me@example.com");
+        User member2 = createUser("member2", "member2@example.com");
+        User member3 = createUser("member3", "member3@example.com");
+        Group group = createGroup("Trip");
+        Group otherGroup = createGroup("Other");
+        addMember(group, me, GroupRole.MEMBER);
+        addMember(group, member2, GroupRole.MEMBER);
+        addMember(group, member3, GroupRole.MEMBER);
+        addMember(otherGroup, me, GroupRole.MEMBER);
+        addMember(otherGroup, member2, GroupRole.MEMBER);
+
+        createPayment(me, member2, new BigDecimal("10"), group);
+        createPayment(member2, member3, new BigDecimal("20"), group); // tra altri membri
+        createPayment(me, member2, new BigDecimal("30"), otherGroup); // altro gruppo: escluso
+        createPayment(me, member2, new BigDecimal("40"), null);       // personale: escluso
+
+        mockMvc.perform(get("/payments")
+                        .with(user(me))
+                        .param("groupId", group.getId().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content[0].amount").value(20))
+                .andExpect(jsonPath("$.content[1].amount").value(10))
+                .andExpect(jsonPath("$.content[0].payer.userId").value(member2.getId()))
+                .andExpect(jsonPath("$.content[0].payee.userId").value(member3.getId()));
+    }
+
+    @Test
+    void getPayments_withGroupId_notMember_returnsForbidden() throws Exception {
+        User outsider = createUser("outsider", "outsider@example.com");
+        Group group = createGroup("Trip");
+
+        mockMvc.perform(get("/payments")
+                        .with(user(outsider))
+                        .param("groupId", group.getId().toString()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getPayments_withBothFilters_returnsBadRequest() throws Exception {
+        User me = createUser("me", "me@example.com");
+        User friend = createUser("friend", "friend@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, me, GroupRole.MEMBER);
+
+        mockMvc.perform(get("/payments")
+                        .with(user(me))
+                        .param("friendId", friend.getId().toString())
+                        .param("groupId", group.getId().toString()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("I filtri friendId e groupId non possono essere usati insieme"));
+    }
+
+    @Test
+    void getPayments_paginationAndOrdering() throws Exception {
+        User me = createUser("me", "me@example.com");
+        User payee = createUser("payee", "payee@example.com");
+        // Date diverse: ordinamento atteso date DESC, id DESC.
+        createPayment(me, payee, new BigDecimal("10"), null, LocalDate.now().minusDays(2));
+        createPayment(me, payee, new BigDecimal("20"), null, LocalDate.now());
+        createPayment(me, payee, new BigDecimal("30"), null, LocalDate.now());
+
+        mockMvc.perform(get("/payments")
+                        .with(user(me))
+                        .param("page", "0")
+                        .param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(3))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.content[0].amount").value(30))
+                .andExpect(jsonPath("$.content[1].amount").value(20));
+
+        mockMvc.perform(get("/payments")
+                        .with(user(me))
+                        .param("page", "1")
+                        .param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].amount").value(10));
+    }
+
+    @Test
     void createPayment_updatesBalancesAndSettlements() throws Exception {
         User buyer = createUser("buyer", "buyer@example.com");
         User debtor = createUser("debtor", "debtor@example.com");
@@ -300,11 +417,20 @@ class PaymentControllerTest {
     }
 
     private void createPayment(User payer, User payee, BigDecimal amount) {
+        createPayment(payer, payee, amount, null);
+    }
+
+    private void createPayment(User payer, User payee, BigDecimal amount, Group group) {
+        createPayment(payer, payee, amount, group, LocalDate.now());
+    }
+
+    private void createPayment(User payer, User payee, BigDecimal amount, Group group, LocalDate date) {
         Payment payment = new Payment();
         payment.setPayer(payer);
         payment.setPayee(payee);
+        payment.setGroup(group);
         payment.setAmount(amount);
-        payment.setDate(LocalDate.now());
+        payment.setDate(date);
         paymentRepository.save(payment);
     }
 }
