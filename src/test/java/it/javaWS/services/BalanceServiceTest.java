@@ -28,7 +28,9 @@ import it.javaWS.models.entities.User;
 import it.javaWS.models.entities.UserBalance;
 import it.javaWS.models.entities.UserGroupBalance;
 import it.javaWS.models.enums.SettlementDirection;
+import it.javaWS.repositories.BillRepository;
 import it.javaWS.repositories.PairwiseSettlementRepository;
+import it.javaWS.repositories.PaymentRepository;
 import it.javaWS.repositories.TransactionRepository;
 import it.javaWS.repositories.UserBalanceRepository;
 import it.javaWS.repositories.UserGroupBalanceRepository;
@@ -39,6 +41,12 @@ class BalanceServiceTest {
 
     @Mock
     private TransactionRepository transactionRepository;
+
+    @Mock
+    private BillRepository billRepository;
+
+    @Mock
+    private PaymentRepository paymentRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -166,6 +174,62 @@ class BalanceServiceTest {
 
         assertThat(settlements).hasSize(1);
         assertThat(settlements.getFirst().getAmount()).isEqualByComparingTo("40");
+    }
+
+    @Test
+    void getSimplifiedGroupSettlements_chain_collapsesIntermediateUser() {
+        User alice = createUser(1L, "alice");
+        User bob = createUser(2L, "bob");
+        User carol = createUser(3L, "carol");
+        Group group = createGroup(10L);
+        when(pairwiseSettlementRepository.findByGroupId(10L)).thenReturn(List.of(
+                createSettlement(alice, bob, group, new BigDecimal("30")),
+                createSettlement(bob, carol, group, new BigDecimal("30"))));
+
+        var settlements = balanceService.getSimplifiedGroupSettlements(10L);
+
+        assertThat(settlements).hasSize(1);
+        assertThat(settlements.getFirst().getDebtor().getUserId()).isEqualTo(1L);
+        assertThat(settlements.getFirst().getCreditor().getUserId()).isEqualTo(3L);
+        assertThat(settlements.getFirst().getAmount()).isEqualByComparingTo("30");
+    }
+
+    @Test
+    void getSimplifiedGroupSettlements_cycle_returnsEmpty() {
+        User alice = createUser(1L, "alice");
+        User bob = createUser(2L, "bob");
+        User carol = createUser(3L, "carol");
+        Group group = createGroup(10L);
+        when(pairwiseSettlementRepository.findByGroupId(10L)).thenReturn(List.of(
+                createSettlement(alice, bob, group, new BigDecimal("30")),
+                createSettlement(bob, carol, group, new BigDecimal("30")),
+                createSettlement(carol, alice, group, new BigDecimal("30"))));
+
+        assertThat(balanceService.getSimplifiedGroupSettlements(10L)).isEmpty();
+    }
+
+    @Test
+    void getSimplifiedGroupSettlements_multipleUsers_preservesTotalsAndOrder() {
+        User alice = createUser(1L, "alice");
+        User bob = createUser(2L, "bob");
+        User carol = createUser(3L, "carol");
+        User dave = createUser(4L, "dave");
+        Group group = createGroup(10L);
+        when(pairwiseSettlementRepository.findByGroupId(10L)).thenReturn(List.of(
+                createSettlement(alice, carol, group, new BigDecimal("20")),
+                createSettlement(bob, carol, group, new BigDecimal("10")),
+                createSettlement(alice, dave, group, new BigDecimal("5"))));
+
+        var settlements = balanceService.getSimplifiedGroupSettlements(10L);
+
+        assertThat(settlements).hasSize(3);
+        assertThat(settlements).extracting(s -> s.getDebtor().getUserId())
+                .containsExactly(1L, 2L, 2L);
+        assertThat(settlements).extracting(s -> s.getCreditor().getUserId())
+                .containsExactly(3L, 3L, 4L);
+        assertThat(settlements).extracting(s -> s.getAmount())
+                .usingElementComparator(BigDecimal::compareTo)
+                .containsExactly(new BigDecimal("25"), new BigDecimal("5"), new BigDecimal("5"));
     }
 
     @Test
@@ -353,91 +417,22 @@ class BalanceServiceTest {
     }
 
     @Test
-    void transferUserSettlementsToGlobal_movesDebtOutOfGroup() {
+    void transferUserSettlementsToGlobal_balancedUser_doesNotCreateTransfers() {
         User alice = createUser(1L, "alice");
         User bob = createUser(2L, "bob");
+        User carol = createUser(3L, "carol");
         Group group = createGroup(10L);
+        when(pairwiseSettlementRepository.findByGroupId(10L)).thenReturn(List.of(
+                createSettlement(alice, bob, group, new BigDecimal("10")),
+                createSettlement(bob, carol, group, new BigDecimal("10")),
+                createSettlement(carol, alice, group, new BigDecimal("10"))));
 
-        // alice deve 30 a bob nel gruppo
-        PairwiseSettlement inGroup = createSettlement(alice, bob, group, new BigDecimal("30"));
+        balanceService.transferUserSettlementsToGlobal(group, 2L);
 
-        UserGroupBalance aliceGroupBalance = new UserGroupBalance();
-        aliceGroupBalance.setUser(alice);
-        aliceGroupBalance.setGroup(group);
-        aliceGroupBalance.setTotalOwed(new BigDecimal("30"));
-        aliceGroupBalance.setNetBalance(new BigDecimal("-30"));
-
-        UserGroupBalance bobGroupBalance = new UserGroupBalance();
-        bobGroupBalance.setUser(bob);
-        bobGroupBalance.setGroup(group);
-        bobGroupBalance.setTotalPaid(new BigDecimal("100"));
-        bobGroupBalance.setNetBalance(new BigDecimal("100"));
-
-        when(pairwiseSettlementRepository.findByGroupId(10L)).thenReturn(List.of(inGroup));
-        when(pairwiseSettlementRepository.findByDebtorIdAndCreditorIdAndGroupId(1L, 2L, 10L))
-                .thenReturn(Optional.of(inGroup));
-        when(pairwiseSettlementRepository.findByDebtorIdAndCreditorIdAndGroupIdIsNull(2L, 1L))
-                .thenReturn(Optional.empty());
-        when(pairwiseSettlementRepository.findByDebtorIdAndCreditorIdAndGroupIdIsNull(1L, 2L))
-                .thenReturn(Optional.empty());
-        when(userGroupBalanceRepository.findByUserIdAndGroupId(1L, 10L))
-                .thenReturn(Optional.of(aliceGroupBalance));
-        when(userGroupBalanceRepository.findByUserIdAndGroupId(2L, 10L))
-                .thenReturn(Optional.of(bobGroupBalance));
-
-        balanceService.transferUserSettlementsToGlobal(group, 1L);
-
-        // Il debito esce dal gruppo e ricompare come personale (group null).
-        verify(pairwiseSettlementRepository).delete(inGroup);
-        ArgumentCaptor<PairwiseSettlement> captor = ArgumentCaptor.forClass(PairwiseSettlement.class);
-        verify(pairwiseSettlementRepository).save(captor.capture());
-        PairwiseSettlement moved = captor.getValue();
-        assertThat(moved.getDebtor().getId()).isEqualTo(1L);
-        assertThat(moved.getCreditor().getId()).isEqualTo(2L);
-        assertThat(moved.getGroup()).isNull();
-        assertThat(moved.getAmount()).isEqualByComparingTo("30");
-
-        // I saldi di gruppo si riallineano; quelli globali non vengono toccati.
-        assertThat(aliceGroupBalance.getTotalOwed()).isEqualByComparingTo("0");
-        assertThat(aliceGroupBalance.getNetBalance()).isEqualByComparingTo("0");
-        assertThat(bobGroupBalance.getTotalPaid()).isEqualByComparingTo("70");
-        verify(userBalanceRepository, never()).save(any());
-    }
-
-    @Test
-    void transferUserSettlementsToGlobal_netsWithExistingGlobalSettlement() {
-        User alice = createUser(1L, "alice");
-        User bob = createUser(2L, "bob");
-        Group group = createGroup(10L);
-
-        // alice deve 30 a bob nel gruppo; bob deve 10 ad alice a livello globale
-        PairwiseSettlement inGroup = createSettlement(alice, bob, group, new BigDecimal("30"));
-        PairwiseSettlement globalInverse = createSettlement(bob, alice, null, new BigDecimal("10"));
-
-        when(pairwiseSettlementRepository.findByGroupId(10L)).thenReturn(List.of(inGroup));
-        when(pairwiseSettlementRepository.findByDebtorIdAndCreditorIdAndGroupId(1L, 2L, 10L))
-                .thenReturn(Optional.of(inGroup));
-        when(pairwiseSettlementRepository.findByDebtorIdAndCreditorIdAndGroupIdIsNull(2L, 1L))
-                .thenReturn(Optional.of(globalInverse));
-        when(pairwiseSettlementRepository.findByDebtorIdAndCreditorIdAndGroupIdIsNull(1L, 2L))
-                .thenReturn(Optional.empty());
-        when(userGroupBalanceRepository.findByUserIdAndGroupId(any(), any()))
-                .thenAnswer(invocation -> {
-                    UserGroupBalance balance = new UserGroupBalance();
-                    balance.setTotalPaid(BigDecimal.ZERO);
-                    balance.setTotalOwed(BigDecimal.ZERO);
-                    balance.setNetBalance(BigDecimal.ZERO);
-                    return Optional.of(balance);
-                });
-
-        balanceService.transferUserSettlementsToGlobal(group, 1L);
-
-        // Netting: il settlement globale inverso (10) viene assorbito, resta alice → bob di 20.
-        // (delete invocata due volte: settlement di gruppo + inverso globale assorbito)
-        verify(pairwiseSettlementRepository, times(2)).delete(any());
-        ArgumentCaptor<PairwiseSettlement> captor = ArgumentCaptor.forClass(PairwiseSettlement.class);
-        verify(pairwiseSettlementRepository).save(captor.capture());
-        assertThat(captor.getValue().getAmount()).isEqualByComparingTo("20");
+        verify(billRepository, never()).save(any());
+        verify(paymentRepository, never()).save(any());
+        verify(pairwiseSettlementRepository, never()).save(any());
+        verify(pairwiseSettlementRepository, never()).delete(any());
     }
 
     @Test

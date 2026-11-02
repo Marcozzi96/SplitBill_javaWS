@@ -33,6 +33,7 @@ import it.javaWS.models.entities.UserGroupId;
 import it.javaWS.models.enums.GroupRole;
 import it.javaWS.repositories.BillRepository;
 import it.javaWS.repositories.GroupRepository;
+import it.javaWS.repositories.PaymentRepository;
 import it.javaWS.repositories.TransactionRepository;
 import it.javaWS.repositories.UserGroupRepository;
 import it.javaWS.repositories.UserRepository;
@@ -57,6 +58,9 @@ class GroupServiceTest {
 
     @Mock
     private TransactionRepository transactionRepository;
+
+    @Mock
+    private PaymentRepository paymentRepository;
 
     @Mock
     private BalanceService balanceService;

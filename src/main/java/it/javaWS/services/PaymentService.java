@@ -62,9 +62,11 @@ public class PaymentService {
             }
         }
 
-        BigDecimal debt = balanceService.getDebtBetween(payerId, payeeId, groupId);
-        if (amount.compareTo(debt) > 0) {
-            throw new PaymentExceedsDebtException("Il rimborso (" + amount + ") supera il debito effettivo (" + debt + ")");
+        if (groupId == null) {
+            BigDecimal debt = balanceService.getDebtBetween(payerId, payeeId, null);
+            if (amount.compareTo(debt) > 0) {
+                throw new PaymentExceedsDebtException("Il rimborso (" + amount + ") supera il debito effettivo (" + debt + ")");
+            }
         }
 
         Payment payment = new Payment();
@@ -102,7 +104,9 @@ public class PaymentService {
             }
         }
 
-        BigDecimal debt = balanceService.getDebtBetween(payerId, creditorId, groupId);
+        BigDecimal debt = groupId == null
+                ? balanceService.getDebtBetween(payerId, creditorId, null)
+                : balanceService.getGroupPaymentLimit(payerId, creditorId, groupId);
         if (debt.compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidPaymentException("Nessun debito da dimenticare");
         }

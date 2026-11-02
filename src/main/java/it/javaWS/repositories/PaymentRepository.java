@@ -18,6 +18,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     Page<Payment> findByGroupIdOrderByDateDescIdDesc(Long groupId, Pageable pageable);
 
+    void deleteByGroupId(Long groupId);
+
     // Rimborsi personali (senza gruppo) tra due utenti, in entrambe le direzioni.
     @Query("""
             SELECT p FROM Payment p

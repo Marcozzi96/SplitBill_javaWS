@@ -160,6 +160,17 @@ public class GroupController {
 		return ResponseEntity.ok(balanceService.getDetailedGroupBalance(user.getId(), groupId));
 	}
 
+	@Operation(summary = "Recupera i settlement semplificati del gruppo", description = "Restituisce i trasferimenti netti tra tutti i membri del gruppo")
+	@ApiResponses(value = { @ApiResponse(responseCode = "200", description = "Settlement restituiti"),
+			@ApiResponse(responseCode = "403", description = "L'utente non fa parte del gruppo"),
+			@ApiResponse(responseCode = "404", description = "Gruppo non trovato") })
+	@GetMapping("/{groupId}/simplified-settlements")
+	public ResponseEntity<List<SettlementDTO>> getSimplifiedGroupSettlements(@AuthenticationPrincipal User user,
+			@PathVariable Long groupId) {
+		groupService.validateGroupAccess(groupId, user.getId());
+		return ResponseEntity.ok(balanceService.getSimplifiedGroupSettlements(groupId));
+	}
+
 	@Operation(summary = "Recupera i propri settlement nel gruppo", description = "Restituisce l'elenco di chi deve a chi dal punto di vista dell'utente autenticato all'interno del gruppo")
 	@ApiResponses(value = { @ApiResponse(responseCode = "200", description = "Settlement restituiti"),
 			@ApiResponse(responseCode = "403", description = "L'utente non fa parte del gruppo"),

@@ -58,7 +58,6 @@ class PaymentServiceTest {
         when(groupService.getGroup(10L)).thenReturn(group);
         when(groupService.existsByGroupIdAndUserId(10L, 1L)).thenReturn(true);
         when(groupService.existsByGroupIdAndUserId(10L, 2L)).thenReturn(true);
-        when(balanceService.getDebtBetween(1L, 2L, 10L)).thenReturn(new BigDecimal("50"));
         when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> {
             Payment payment = invocation.getArgument(0);
             payment.setId(100L);

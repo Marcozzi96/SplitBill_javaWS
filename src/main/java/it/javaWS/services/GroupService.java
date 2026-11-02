@@ -31,6 +31,7 @@ import it.javaWS.models.entities.UserGroupId;
 import it.javaWS.models.enums.GroupRole;
 import it.javaWS.repositories.BillRepository;
 import it.javaWS.repositories.GroupRepository;
+import it.javaWS.repositories.PaymentRepository;
 import it.javaWS.repositories.TransactionRepository;
 import it.javaWS.repositories.UserGroupRepository;
 import it.javaWS.repositories.UserRepository;
@@ -47,18 +48,20 @@ public class GroupService {
 	private final UserGroupRepository userGroupRepository;
 	private final BillRepository billRepository;
 	private final TransactionRepository transactionRepository;
+	private final PaymentRepository paymentRepository;
 	private final BalanceService balanceService;
 	private final FriendshipService friendshipService;
 
 	public GroupService(GroupRepository groupRepository, UserRepository userRepository,
 			UserGroupRepository userGroupRepository, BillRepository billRepository,
-			TransactionRepository transactionRepository, BalanceService balanceService,
-			FriendshipService friendshipService) {
+			TransactionRepository transactionRepository, PaymentRepository paymentRepository,
+			BalanceService balanceService, FriendshipService friendshipService) {
 		this.groupRepository = groupRepository;
 		this.userRepository = userRepository;
 		this.userGroupRepository = userGroupRepository;
 		this.billRepository = billRepository;
 		this.transactionRepository = transactionRepository;
+		this.paymentRepository = paymentRepository;
 		this.balanceService = balanceService;
 		this.friendshipService = friendshipService;
 	}
@@ -127,6 +130,16 @@ public class GroupService {
 		GroupDTO dto = new GroupDTO(group);
 		dto.setUsers(getUsersInGroup(groupId));
 		return dto;
+	}
+
+	@Transactional(readOnly = true)
+	public void validateGroupAccess(Long groupId, Long requestingUserId) {
+		if (!groupRepository.existsById(groupId)) {
+			throw new GroupNotFoundException("Gruppo non trovato");
+		}
+		if (!existsByGroupIdAndUserId(groupId, requestingUserId)) {
+			throw new org.springframework.security.access.AccessDeniedException("L'utente non fa parte del gruppo richiesto");
+		}
 	}
 
 	@Transactional
@@ -244,6 +257,7 @@ public class GroupService {
 			transactionRepository.deleteAll(transactions);
 		}
 		billRepository.deleteAll(bills);
+		paymentRepository.deleteByGroupId(group.getId());
 		groupRepository.delete(group);
 	}
 	

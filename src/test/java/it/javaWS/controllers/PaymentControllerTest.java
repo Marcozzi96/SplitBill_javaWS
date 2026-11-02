@@ -314,6 +314,139 @@ class PaymentControllerTest {
     }
 
     @Test
+    void createPayment_simplifiedChainPayment_settlesWithoutInverseDebt() throws Exception {
+        User alice = createUser("alice", "alice@example.com");
+        User bob = createUser("bob", "bob@example.com");
+        User carol = createUser("carol", "carol@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, alice, GroupRole.MEMBER);
+        addMember(group, bob, GroupRole.MEMBER);
+        addMember(group, carol, GroupRole.MEMBER);
+        createBillWithBalance(group, bob, alice, new BigDecimal("30"));
+        createBillWithBalance(group, carol, bob, new BigDecimal("30"));
+
+        mockMvc.perform(post("/payments")
+                        .with(user(alice))
+                        .param("payeeId", carol.getId().toString())
+                        .param("amount", "30")
+                        .param("groupId", group.getId().toString()))
+                .andExpect(status().isOk());
+
+        assertThat(balanceService.getDebtBetween(alice.getId(), bob.getId(), group.getId()))
+                .isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(balanceService.getDebtBetween(bob.getId(), carol.getId(), group.getId()))
+                .isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(balanceService.getDebtBetween(carol.getId(), alice.getId(), group.getId()))
+                .isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(balanceService.getSimplifiedGroupSettlements(group.getId())).isEmpty();
+    }
+
+    @Test
+    void createPayment_simplifiedChainPartialPayment_preservesResidualDebt() throws Exception {
+        User alice = createUser("alice", "alice@example.com");
+        User bob = createUser("bob", "bob@example.com");
+        User carol = createUser("carol", "carol@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, alice, GroupRole.MEMBER);
+        addMember(group, bob, GroupRole.MEMBER);
+        addMember(group, carol, GroupRole.MEMBER);
+        createBillWithBalance(group, bob, alice, new BigDecimal("30"));
+        createBillWithBalance(group, carol, bob, new BigDecimal("30"));
+
+        mockMvc.perform(post("/payments")
+                        .with(user(alice))
+                        .param("payeeId", carol.getId().toString())
+                        .param("amount", "10")
+                        .param("groupId", group.getId().toString()))
+                .andExpect(status().isOk());
+
+        assertThat(balanceService.getDebtBetween(alice.getId(), bob.getId(), group.getId()))
+                .isEqualByComparingTo("20");
+        assertThat(balanceService.getDebtBetween(bob.getId(), carol.getId(), group.getId()))
+                .isEqualByComparingTo("20");
+        var simplified = balanceService.getSimplifiedGroupSettlements(group.getId());
+        assertThat(simplified).hasSize(1);
+        assertThat(simplified.getFirst().getAmount()).isEqualByComparingTo("20");
+    }
+
+    @Test
+    void createPayment_simplifiedPayment_reallocatesAcrossSeparatePairs() throws Exception {
+        User alice = createUser("alice", "alice@example.com");
+        User bob = createUser("bob", "bob@example.com");
+        User carol = createUser("carol", "carol@example.com");
+        User dave = createUser("dave", "dave@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, alice, GroupRole.MEMBER);
+        addMember(group, bob, GroupRole.MEMBER);
+        addMember(group, carol, GroupRole.MEMBER);
+        addMember(group, dave, GroupRole.MEMBER);
+        createBillWithBalance(group, bob, alice, new BigDecimal("30"));
+        createBillWithBalance(group, carol, dave, new BigDecimal("30"));
+
+        mockMvc.perform(post("/payments")
+                        .with(user(alice))
+                        .param("payeeId", carol.getId().toString())
+                        .param("amount", "10")
+                        .param("groupId", group.getId().toString()))
+                .andExpect(status().isOk());
+
+        assertThat(balanceService.getDebtBetween(alice.getId(), bob.getId(), group.getId()))
+                .isEqualByComparingTo("20");
+        assertThat(balanceService.getDebtBetween(dave.getId(), carol.getId(), group.getId()))
+                .isEqualByComparingTo("20");
+        assertThat(balanceService.getDebtBetween(dave.getId(), bob.getId(), group.getId()))
+                .isEqualByComparingTo("10");
+    }
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void createPayment_groupExceedsNetDebt_rollsBackPayment() throws Exception {
+        User alice = createUser("alice", "alice@example.com");
+        User bob = createUser("bob", "bob@example.com");
+        User carol = createUser("carol", "carol@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, alice, GroupRole.MEMBER);
+        addMember(group, bob, GroupRole.MEMBER);
+        addMember(group, carol, GroupRole.MEMBER);
+        createBillWithBalance(group, bob, alice, new BigDecimal("30"));
+        createBillWithBalance(group, carol, bob, new BigDecimal("30"));
+
+        mockMvc.perform(post("/payments")
+                        .with(user(alice))
+                        .param("payeeId", carol.getId().toString())
+                        .param("amount", "31")
+                        .param("groupId", group.getId().toString()))
+                .andExpect(status().isConflict());
+
+        assertThat(paymentRepository.count()).isZero();
+    }
+
+    @Test
+    void forgiveDebt_simplifiedGroupDebt_settlesChain() throws Exception {
+        User ghost = createUser("ghost", "ghost@example.com");
+        User bob = createUser("bob", "bob@example.com");
+        User carol = createUser("carol", "carol@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, ghost, GroupRole.MEMBER);
+        addMember(group, bob, GroupRole.MEMBER);
+        addMember(group, carol, GroupRole.MEMBER);
+        createBillWithBalance(group, bob, ghost, new BigDecimal("30"));
+        createBillWithBalance(group, carol, bob, new BigDecimal("30"));
+        ghost.setDeleted(true);
+        userRepository.save(ghost);
+
+        mockMvc.perform(post("/payments/forgive")
+                        .with(user(carol))
+                        .param("payerId", ghost.getId().toString())
+                        .param("groupId", group.getId().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.amount").value(30));
+
+        assertThat(balanceService.getSimplifiedGroupSettlements(group.getId())).isEmpty();
+    }
+
+    @Test
     void forgiveDebt_payerNotDeleted_returnsBadRequest() throws Exception {
         User buyer = createUser("buyer", "buyer@example.com");
         User debtor = createUser("debtor", "debtor@example.com");

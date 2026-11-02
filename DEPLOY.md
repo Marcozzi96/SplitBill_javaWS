@@ -111,6 +111,23 @@ docker compose exec db pg_dump -U splitbill splitbill | gzip > backup-$(date +%F
 git revert HEAD && git push                # il workflow rideploya da solo
 ```
 
+### Indici dei settlement semplificati
+
+Il rilascio dei settlement semplificati aggiunge soltanto due indici e non modifica i dati. Prima del deploy:
+
+```bash
+# Backup obbligatorio e verifica del file
+docker compose exec db pg_dump -U splitbill splitbill | gzip > backup-pre-simplified-settlements-$(date +%F).sql.gz
+ls -lh backup-pre-simplified-settlements-$(date +%F).sql.gz
+
+# Applicazione fuori transazione, sul database PostgreSQL di produzione
+cat sql/add_pairwise_settlement_group_indexes.sql | docker compose exec -T db psql -U splitbill -d splitbill
+```
+
+Lo script usa `CREATE INDEX CONCURRENTLY IF NOT EXISTS` ed è compatibile con il backend precedente. Verificare gli indici e i consueti conteggi applicativi dopo l'esecuzione, poi deployare prima backend e infine frontend. Non usare `docker compose down -v`: il volume `pgdata` conserva i dati.
+
+Per il rollback applicativo non serve modificare il database. Se necessario, gli unici oggetti da rimuovere sono i due indici con `DROP INDEX CONCURRENTLY IF EXISTS idx_pairwise_group_debtor` e `DROP INDEX CONCURRENTLY IF EXISTS idx_pairwise_group_creditor`; non ripristinare il backup come procedura ordinaria.
+
 ## 7. Note
 
 - Il DB è raggiungibile **solo** all'interno della rete Docker (nessuna porta pubblicata).

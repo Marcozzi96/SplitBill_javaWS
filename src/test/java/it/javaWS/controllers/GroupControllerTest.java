@@ -69,6 +69,9 @@ class GroupControllerTest {
     @Autowired
     private BalanceService balanceService;
 
+    @Autowired
+    private it.javaWS.repositories.PaymentRepository paymentRepository;
+
     @Test
     void getGroupMembers_asMember_returnsOk() throws Exception {
         User member = createUser("member", "member@example.com");
@@ -278,6 +281,217 @@ class GroupControllerTest {
     }
 
     @Test
+    void getSimplifiedGroupSettlements_chain_returnsDirectTransfer() throws Exception {
+        User alice = createUser("alice", "alice@example.com");
+        User bob = createUser("bob", "bob@example.com");
+        User carol = createUser("carol", "carol@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, alice, GroupRole.MEMBER);
+        addMember(group, bob, GroupRole.MEMBER);
+        addMember(group, carol, GroupRole.MEMBER);
+        createBillWithBalance(group, bob, alice, new BigDecimal("30"));
+        createBillWithBalance(group, carol, bob, new BigDecimal("30"));
+
+        mockMvc.perform(get("/groups/{groupId}/simplified-settlements", group.getId())
+                        .with(user(alice)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].debtor.userId").value(alice.getId()))
+                .andExpect(jsonPath("$[0].creditor.userId").value(carol.getId()))
+                .andExpect(jsonPath("$[0].amount").value(30));
+    }
+
+    @Test
+    void getSimplifiedGroupSettlements_asNonMember_returnsForbidden() throws Exception {
+        User member = createUser("member", "member@example.com");
+        User outsider = createUser("outsider", "outsider@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, member, GroupRole.MEMBER);
+
+        mockMvc.perform(get("/groups/{groupId}/simplified-settlements", group.getId())
+                        .with(user(outsider)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getSimplifiedGroupSettlements_missingGroup_returnsNotFound() throws Exception {
+        User member = createUser("member", "member@example.com");
+
+        mockMvc.perform(get("/groups/{groupId}/simplified-settlements", 999999L)
+                        .with(user(member)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deleteGroup_withHistoricalPayments_deletesOnlyThatGroupsPayments() throws Exception {
+        User admin = createUser("admin", "admin@example.com");
+        User debtor = createUser("debtor", "debtor@example.com");
+        Group group = createGroup("Trip");
+        Group otherGroup = createGroup("Other");
+        addMember(group, admin, GroupRole.ADMIN);
+        addMember(group, debtor, GroupRole.MEMBER);
+        addMember(otherGroup, admin, GroupRole.ADMIN);
+        addMember(otherGroup, debtor, GroupRole.MEMBER);
+        createBillWithBalance(group, admin, debtor, new BigDecimal("100"));
+        createBillWithBalance(otherGroup, admin, debtor, new BigDecimal("50"));
+        createPaymentWithBalance(group, debtor, admin, new BigDecimal("100"));
+        var otherPayment = createPaymentWithBalance(otherGroup, debtor, admin, new BigDecimal("50"));
+
+        mockMvc.perform(delete("/groups/{groupId}", group.getId())
+                        .with(user(admin)))
+                .andExpect(status().isOk());
+
+        assertThat(groupRepository.findById(group.getId())).isEmpty();
+        assertThat(paymentRepository.findByGroupIdOrderByDateDescIdDesc(group.getId(),
+                org.springframework.data.domain.Pageable.unpaged()).getContent()).isEmpty();
+        assertThat(paymentRepository.findById(otherPayment.getId())).isPresent();
+    }
+
+    @Test
+    void deleteGroup_withForceAndPendingDebt_alsoDeletesPayments() throws Exception {
+        User admin = createUser("admin", "admin@example.com");
+        User debtor = createUser("debtor", "debtor@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, admin, GroupRole.ADMIN);
+        addMember(group, debtor, GroupRole.MEMBER);
+        createBillWithBalance(group, admin, debtor, new BigDecimal("100"));
+        var payment = createPaymentWithBalance(group, debtor, admin, new BigDecimal("40"));
+
+        mockMvc.perform(delete("/groups/{groupId}", group.getId())
+                        .with(user(admin))
+                        .param("force", "true"))
+                .andExpect(status().isOk());
+
+        assertThat(groupRepository.findById(group.getId())).isEmpty();
+        assertThat(paymentRepository.findById(payment.getId())).isEmpty();
+    }
+
+    @Test
+    void leaveGroup_simplifiedCreditor_createsPersonalBillAndAutomaticGroupPayment() throws Exception {
+        User alice = createUser("alice", "alice@example.com");
+        User bob = createUser("bob", "bob@example.com");
+        User carol = createUser("carol", "carol@example.com");
+        Group group = createGroup("XX");
+        addMember(group, alice, GroupRole.ADMIN);
+        addMember(group, bob, GroupRole.MEMBER);
+        addMember(group, carol, GroupRole.MEMBER);
+        createBillWithBalance(group, bob, alice, new BigDecimal("30"));
+        createBillWithBalance(group, carol, bob, new BigDecimal("30"));
+        createBillWithBalance(group, alice, carol, new BigDecimal("10"));
+
+        mockMvc.perform(delete("/groups/leave/{groupId}", group.getId())
+                        .with(user(carol)))
+                .andExpect(status().isOk());
+
+        assertThat(balanceService.getSimplifiedGroupSettlements(group.getId())).isEmpty();
+        var personalBills = billRepository.findAll().stream().filter(bill -> bill.getGroup() == null).toList();
+        assertThat(personalBills).hasSize(1);
+        assertThat(personalBills.getFirst().getDescription()).isEqualTo("Trasferimento da XX");
+        assertThat(personalBills.getFirst().getNotes()).isEqualTo("alice deve 20 a carol");
+        assertThat(personalBills.getFirst().getAmount()).isEqualByComparingTo("20");
+        assertThat(personalBills.getFirst().getBuyer().getId()).isEqualTo(carol.getId());
+        var payments = paymentRepository.findByPayerIdAndPayeeIdAndGroupId(
+                alice.getId(), carol.getId(), group.getId());
+        assertThat(payments).hasSize(1);
+        assertThat(payments.getFirst().getAmount()).isEqualByComparingTo("20");
+        assertThat(payments.getFirst().getNotes()).isEqualTo("trasferimento su conto personale");
+        assertThat(balanceService.getDebtBetween(alice.getId(), carol.getId(), null))
+                .isEqualByComparingTo("20");
+        assertThat(balanceService.getUserBalance(alice.getId())).isEqualByComparingTo("-20");
+        assertThat(balanceService.getUserBalance(bob.getId())).isEqualByComparingTo("0");
+        assertThat(balanceService.getUserBalance(carol.getId())).isEqualByComparingTo("20");
+    }
+
+    @Test
+    void leaveGroup_simplifiedCreditor_createsAllRequiredTransfers() throws Exception {
+        User alice = createUser("alice", "alice@example.com");
+        User bob = createUser("bob", "bob@example.com");
+        User carol = createUser("carol", "carol@example.com");
+        Group group = createGroup("YY");
+        addMember(group, alice, GroupRole.ADMIN);
+        addMember(group, bob, GroupRole.MEMBER);
+        addMember(group, carol, GroupRole.MEMBER);
+        createBillWithBalance(group, carol, alice, new BigDecimal("10"));
+        createBillWithBalance(group, alice, bob, new BigDecimal("5"));
+        createBillWithBalance(group, carol, bob, new BigDecimal("5"));
+
+        mockMvc.perform(delete("/groups/leave/{groupId}", group.getId())
+                        .with(user(carol)))
+                .andExpect(status().isOk());
+
+        var personalBills = billRepository.findAll().stream().filter(bill -> bill.getGroup() == null).toList();
+        assertThat(personalBills).hasSize(2);
+        assertThat(personalBills).anyMatch(bill -> bill.getDescription().equals("Trasferimento da YY")
+                && bill.getNotes().equals("alice deve 5 a carol")
+                && bill.getAmount().compareTo(new BigDecimal("5")) == 0);
+        assertThat(personalBills).anyMatch(bill -> bill.getDescription().equals("Trasferimento da YY")
+                && bill.getNotes().equals("bob deve 10 a carol")
+                && bill.getAmount().compareTo(new BigDecimal("10")) == 0);
+        assertThat(paymentRepository.findByPayerIdAndPayeeIdAndGroupId(
+                alice.getId(), carol.getId(), group.getId())).hasSize(1);
+        assertThat(paymentRepository.findByPayerIdAndPayeeIdAndGroupId(
+                bob.getId(), carol.getId(), group.getId())).hasSize(1);
+        assertThat(balanceService.getDebtBetween(alice.getId(), carol.getId(), null))
+                .isEqualByComparingTo("5");
+        assertThat(balanceService.getDebtBetween(bob.getId(), carol.getId(), null))
+                .isEqualByComparingTo("10");
+        assertThat(balanceService.getSimplifiedGroupSettlements(group.getId())).isEmpty();
+    }
+
+    @Test
+    void leaveGroup_balancedUser_createsNothingAndBalancedGroupCanBeDeleted() throws Exception {
+        User alice = createUser("alice", "alice@example.com");
+        User bob = createUser("bob", "bob@example.com");
+        User carol = createUser("carol", "carol@example.com");
+        Group group = createGroup("Cycle");
+        addMember(group, alice, GroupRole.ADMIN);
+        addMember(group, bob, GroupRole.MEMBER);
+        addMember(group, carol, GroupRole.MEMBER);
+        createBillWithBalance(group, bob, alice, new BigDecimal("10"));
+        createBillWithBalance(group, carol, bob, new BigDecimal("10"));
+        createBillWithBalance(group, alice, carol, new BigDecimal("10"));
+
+        mockMvc.perform(delete("/groups/leave/{groupId}", group.getId())
+                        .with(user(bob)))
+                .andExpect(status().isOk());
+
+        assertThat(billRepository.findAll().stream()
+                .filter(bill -> bill.getDescription().startsWith("Trasferimento da "))).isEmpty();
+        assertThat(paymentRepository.findAll()).isEmpty();
+        assertThat(balanceService.getSimplifiedGroupSettlements(group.getId())).isEmpty();
+        assertThat(balanceService.getDebtBetween(alice.getId(), bob.getId(), null))
+                .isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(balanceService.getDebtBetween(bob.getId(), carol.getId(), null))
+                .isEqualByComparingTo(BigDecimal.ZERO);
+
+        mockMvc.perform(delete("/groups/{groupId}", group.getId())
+                        .with(user(alice)))
+                .andExpect(status().isOk());
+        assertThat(groupRepository.findById(group.getId())).isEmpty();
+    }
+
+    @Test
+    void leaveGroup_lastMember_alsoDeletesHistoricalPayments() throws Exception {
+        User admin = createUser("admin", "admin@example.com");
+        User debtor = createUser("debtor", "debtor@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, admin, GroupRole.ADMIN);
+        addMember(group, debtor, GroupRole.MEMBER);
+        createBillWithBalance(group, admin, debtor, new BigDecimal("100"));
+        var payment = createPaymentWithBalance(group, debtor, admin, new BigDecimal("100"));
+
+        mockMvc.perform(delete("/groups/leave/{groupId}", group.getId())
+                        .with(user(debtor)))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/groups/leave/{groupId}", group.getId())
+                        .with(user(admin)))
+                .andExpect(status().isOk());
+
+        assertThat(groupRepository.findById(group.getId())).isEmpty();
+        assertThat(paymentRepository.findById(payment.getId())).isEmpty();
+    }
+
+    @Test
     void leaveGroup_lastMember_deletesGroup() throws Exception {
         User admin = createUser("admin", "admin@example.com");
         Group group = createGroup("Trip");
@@ -461,6 +675,19 @@ class GroupControllerTest {
         userGroup.setDataIngresso(LocalDate.now());
         userGroup.setRole(role);
         userGroupRepository.save(userGroup);
+    }
+
+    private it.javaWS.models.entities.Payment createPaymentWithBalance(Group group, User payer, User payee,
+            BigDecimal amount) {
+        var payment = new it.javaWS.models.entities.Payment();
+        payment.setPayer(payer);
+        payment.setPayee(payee);
+        payment.setGroup(group);
+        payment.setAmount(amount);
+        payment.setDate(LocalDate.now());
+        payment = paymentRepository.save(payment);
+        balanceService.applyPayment(payment);
+        return payment;
     }
 
     private Bill createBill(Group group, User buyer, User debtor, BigDecimal amount) {
