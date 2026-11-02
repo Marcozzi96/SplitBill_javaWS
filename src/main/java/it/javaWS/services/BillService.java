@@ -3,6 +3,7 @@ package it.javaWS.services;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import it.javaWS.models.dto.BillDTO;
 import it.javaWS.models.dto.TransactionDTO;
+import it.javaWS.models.dto.UserDTO;
 import it.javaWS.models.entities.Bill;
 import it.javaWS.models.entities.Group;
 import it.javaWS.models.entities.ShoppingItem;
@@ -219,6 +221,7 @@ public class BillService {
     @Transactional
     public void deleteBill(Long id) {
         Bill bill = getBill(id);
+        assertFormerMemberBalancesUnaffectedByDeletion(bill);
         balanceService.revertBill(bill);
         transactionRepository.deleteAll(transactionRepository.findByBill_Id(bill.getId()));
         billRepository.delete(bill);
@@ -273,6 +276,7 @@ public class BillService {
                     .orElseThrow(() -> new InvalidBillException("Buyer non trovato"));
         }
         final Long effectiveBuyerId = buyer.getId();
+        assertFormerMemberBalancesUnchanged(bill, effectiveBuyerId, usersDebit);
 
         if (group == null) {
             Set<Long> participantIds = new HashSet<>(usersDebit.keySet());
@@ -285,8 +289,9 @@ public class BillService {
         Set<Long> debtorIds = usersDebit.keySet();
         List<User> debtors;
         if (group != null) {
-            // Il buyer deve essere un membro attivo del gruppo.
-            if (!groupService.existsByGroupIdAndUserId(group.getId(), effectiveBuyerId)) {
+            // Un buyer uscito resta valido soltanto se era già il buyer della spesa.
+            if (!effectiveBuyerId.equals(bill.getBuyer().getId())
+                    && !groupService.existsByGroupIdAndUserId(group.getId(), effectiveBuyerId)) {
                 throw new InvalidBillException("Il buyer deve far parte del gruppo");
             }
             Set<UserGroup> userGroups = groupService.getUserGroup(group.getId(), debtorIds);
@@ -362,9 +367,77 @@ public class BillService {
         return toBillDto(updatedBill);
     }
 
+    private Map<Long, BigDecimal> getBillNetAmounts(Long billId) {
+        return transactionRepository.findByBill_Id(billId).stream()
+                .collect(Collectors.toMap(t -> t.getUser().getId(), Transaction::getAmount, BigDecimal::add));
+    }
+
+    private Map<Long, BigDecimal> getUpdatedNetAmounts(Long buyerId, Map<Long, BigDecimal> usersDebit) {
+        Map<Long, BigDecimal> netAmounts = new HashMap<>();
+        BigDecimal buyerCredit = BigDecimal.ZERO;
+        for (Map.Entry<Long, BigDecimal> entry : usersDebit.entrySet()) {
+            if (!entry.getKey().equals(buyerId)) {
+                netAmounts.merge(entry.getKey(), entry.getValue().negate(), BigDecimal::add);
+                buyerCredit = buyerCredit.add(entry.getValue());
+            }
+        }
+        netAmounts.merge(buyerId, buyerCredit, BigDecimal::add);
+        return netAmounts;
+    }
+
+    private Set<Long> getFormerMemberIds(Group group, Set<Long> userIds) {
+        if (group == null || userIds.isEmpty()) {
+            return Set.of();
+        }
+        return groupService.getUserGroup(group.getId(), userIds).stream()
+                .filter(userGroup -> userGroup.getDataUscita() != null)
+                .map(userGroup -> userGroup.getUser().getId())
+                .collect(Collectors.toSet());
+    }
+
+    private void assertFormerMemberBalancesUnchanged(Bill bill, Long buyerId, Map<Long, BigDecimal> usersDebit) {
+        if (bill.getGroup() == null) {
+            return;
+        }
+        Map<Long, BigDecimal> originalNetAmounts = getBillNetAmounts(bill.getId());
+        Map<Long, BigDecimal> updatedNetAmounts = getUpdatedNetAmounts(buyerId, usersDebit);
+        Set<Long> participantIds = new HashSet<>(originalNetAmounts.keySet());
+        participantIds.addAll(updatedNetAmounts.keySet());
+
+        for (Long formerMemberId : getFormerMemberIds(bill.getGroup(), participantIds)) {
+            BigDecimal originalAmount = originalNetAmounts.getOrDefault(formerMemberId, BigDecimal.ZERO);
+            BigDecimal updatedAmount = updatedNetAmounts.getOrDefault(formerMemberId, BigDecimal.ZERO);
+            if (originalAmount.compareTo(updatedAmount) != 0) {
+                throw new InvalidBillException("La modifica non può cambiare i saldi degli ex membri del gruppo");
+            }
+        }
+    }
+
+    private void assertFormerMemberBalancesUnaffectedByDeletion(Bill bill) {
+        if (bill.getGroup() == null) {
+            return;
+        }
+        Map<Long, BigDecimal> originalNetAmounts = getBillNetAmounts(bill.getId());
+        for (Long formerMemberId : getFormerMemberIds(bill.getGroup(), originalNetAmounts.keySet())) {
+            if (originalNetAmounts.get(formerMemberId).compareTo(BigDecimal.ZERO) != 0) {
+                throw new InvalidBillException(
+                        "La spesa non può essere eliminata perché cambierebbe i saldi degli ex membri del gruppo");
+            }
+        }
+    }
+
     private BillDTO toBillDto(Bill bill) {
         BillDTO dto = new BillDTO(bill);
-        dto.setTransactions(getTransactionDtosByBillId(bill.getId()));
+        Set<TransactionDTO> transactions = getTransactionDtosByBillId(bill.getId());
+        dto.setTransactions(transactions);
+        if (bill.getGroup() != null) {
+            Set<Long> participantIds = transactions.stream().map(TransactionDTO::getUserId).collect(Collectors.toSet());
+            participantIds.add(bill.getBuyer().getId());
+            dto.setFormerParticipants(groupService.getUserGroup(bill.getGroup().getId(), participantIds).stream()
+                    .filter(userGroup -> userGroup.getDataUscita() != null)
+                    .map(userGroup -> new UserDTO(userGroup.getUser()))
+                    .collect(Collectors.toSet()));
+        }
         return dto;
     }
 }

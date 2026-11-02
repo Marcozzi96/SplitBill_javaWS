@@ -18,7 +18,8 @@ import lombok.Data;
 	"amount",
 	"buyer",
 	"purchasedItems",
-	"transactions"
+	"formerParticipants",
+		"transactions"
 })
 @Data
 public class BillDTO {
@@ -32,6 +33,7 @@ public class BillDTO {
 	private UserDTO buyer;
 	private Long groupId;
 	private String purchasedItems;
+	private Set<UserDTO> formerParticipants = Set.of();
 	private Set<TransactionDTO> transactions;
 
 	public BillDTO(Bill bill) {

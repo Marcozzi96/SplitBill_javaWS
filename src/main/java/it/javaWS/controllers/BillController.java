@@ -195,7 +195,7 @@ public class BillController {
 		return ResponseEntity.ok(billService.getPersonalBillsBetweenUsers(user.getId(), friendId, pageable));
 	}
 
-	@Operation(summary = "Modifica una spesa", description = "Consente la modifica a qualsiasi membro attivo del gruppo; per le spese personali a chiunque sia coinvolto (buyer o debitore). Le spese personali devono mantenere esattamente 2 partecipanti distinti (buyer + debitori nella ripartizione). Con buyerId si può cambiare chi ha pagato.")
+	@Operation(summary = "Modifica una spesa", description = "Consente la modifica a qualsiasi membro attivo del gruppo; per le spese personali a chiunque sia coinvolto (buyer o debitore). Le spese personali devono mantenere esattamente 2 partecipanti distinti (buyer + debitori nella ripartizione). Con buyerId si può cambiare chi ha pagato. Se la spesa coinvolge ex membri, la modifica non può cambiare il loro debito o credito.")
 	@ApiResponses(value = {
 			@ApiResponse(responseCode = "200", description = "Spesa modificata"),
 			@ApiResponse(responseCode = "400", description = "Dati non validi"),
@@ -209,7 +209,7 @@ public class BillController {
 		return ResponseEntity.ok(billService.updateBill(id, user.getId(), description, amount, notes, buyerId, usersDebit));
 	}
 
-	@Operation(summary = "Elimina una spesa", description = "Consente l'eliminazione a qualsiasi membro attivo del gruppo; per le spese personali a chiunque sia coinvolto (buyer o debitore)")
+	@Operation(summary = "Elimina una spesa", description = "Consente l'eliminazione a qualsiasi membro attivo del gruppo; per le spese personali a chiunque sia coinvolto (buyer o debitore). Non è consentita se cambierebbe i saldi degli ex membri del gruppo")
 	@ApiResponses(value = {
 			@ApiResponse(responseCode = "200", description = "Spesa eliminata"),
 			@ApiResponse(responseCode = "401", description = "Non autorizzato"),

@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -1000,6 +1001,111 @@ class BillControllerTest {
         // L'articolo non viene ripristinato né eliminato con la spesa.
         ShoppingItem ricaricato = shoppingItemRepository.findById(pane.getId()).orElseThrow();
         assertThat(ricaricato.isToBuy()).isFalse();
+    }
+
+    @Test
+    void updateBill_formerDebtor_metadataOnly_returnsOk() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User former = createUser("former", "former@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, former, GroupRole.MEMBER);
+        Bill bill = createBill(group, buyer, former, new BigDecimal("100"));
+        mockMvc.perform(delete("/groups/leave/{groupId}", group.getId())
+                        .with(user(former)))
+                .andExpect(status().isOk());
+
+        Map<Long, BigDecimal> debits = Map.of(former.getId(), new BigDecimal("100"));
+
+        mockMvc.perform(put("/bills/{id}", bill.getId())
+                        .with(user(buyer))
+                        .param("description", "Solo metadati")
+                        .param("amount", "100")
+                        .param("notes", "note aggiornate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.description").value("Solo metadati"))
+                .andExpect(jsonPath("$.formerParticipants[0].username").value("former"));
+    }
+
+    @Test
+    void updateBill_formerDebtor_changedShare_returnsBadRequest() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User former = createUser("former", "former@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, former, GroupRole.MEMBER);
+        Bill bill = createBill(group, buyer, former, new BigDecimal("100"));
+        mockMvc.perform(delete("/groups/leave/{groupId}", group.getId())
+                        .with(user(former)))
+                .andExpect(status().isOk());
+
+        Map<Long, BigDecimal> debits = Map.of(
+                former.getId(), new BigDecimal("40"),
+                buyer.getId(), new BigDecimal("60"));
+
+        mockMvc.perform(put("/bills/{id}", bill.getId())
+                        .with(user(buyer))
+                        .param("description", "Non consentita")
+                        .param("amount", "100")
+                        .param("notes", "")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("La modifica non può cambiare i saldi degli ex membri del gruppo"));
+
+        assertThat(billRepository.findById(bill.getId()).orElseThrow().getDescription()).isEqualTo("Test bill");
+    }
+
+    @Test
+    void updateBill_formerBuyer_metadataOnly_returnsOk() throws Exception {
+        User formerBuyer = createUser("formerBuyer", "formerBuyer@example.com");
+        User debtor = createUser("debtor", "debtor@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, formerBuyer, GroupRole.MEMBER);
+        addMember(group, debtor, GroupRole.MEMBER);
+        Bill bill = createBill(group, formerBuyer, debtor, new BigDecimal("100"));
+        markFormerMember(group, formerBuyer);
+
+        Map<Long, BigDecimal> debits = Map.of(debtor.getId(), new BigDecimal("100"));
+
+        mockMvc.perform(put("/bills/{id}", bill.getId())
+                        .with(user(debtor))
+                        .param("description", "Solo metadati")
+                        .param("amount", "100")
+                        .param("notes", "note aggiornate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(debits)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.buyer.username").value("formerBuyer"));
+    }
+
+    @Test
+    void deleteBill_formerDebtor_returnsBadRequest() throws Exception {
+        User buyer = createUser("buyer", "buyer@example.com");
+        User former = createUser("former", "former@example.com");
+        Group group = createGroup("Trip");
+        addMember(group, buyer, GroupRole.MEMBER);
+        addMember(group, former, GroupRole.MEMBER);
+        Bill bill = createBill(group, buyer, former, new BigDecimal("100"));
+        mockMvc.perform(delete("/groups/leave/{groupId}", group.getId())
+                        .with(user(former)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/bills/{id}", bill.getId())
+                        .with(user(buyer)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("La spesa non può essere eliminata perché cambierebbe i saldi degli ex membri del gruppo"));
+
+        assertThat(billRepository.findById(bill.getId())).isPresent();
+    }
+
+    private void markFormerMember(Group group, User user) {
+        UserGroup membership = userGroupRepository.findByGroup_IdAndUser_IdIn(group.getId(), Set.of(user.getId()))
+                .stream().findFirst().orElseThrow();
+        membership.setDataUscita(LocalDate.now());
+        userGroupRepository.save(membership);
     }
 
     private User createUser(String username, String email) {
