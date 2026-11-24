@@ -8,7 +8,8 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # Stage 2: Runtime (JRE: immagine più leggera del JDK)
-FROM eclipse-temurin:21-jre
+# Temurin 21.0.13.1+2 include la patch per CVE-2026-114938 (Java4Shell)
+FROM eclipse-temurin:21.0.13.1_2-jre
 WORKDIR /app
 COPY --from=build /app/target/rest-api-server-0.0.1-SNAPSHOT.jar app.jar
 EXPOSE 8080
